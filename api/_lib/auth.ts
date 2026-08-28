@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 import type { VercelRequest } from '@vercel/node'
-import { ApiError } from './db'
+import { ApiError } from './db.js'
 
 // Minimal, dependency-free cookie helpers (avoids pinning to a specific
 // version of the `cookie` package's API, which has changed shape across

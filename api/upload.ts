@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { put, del } from '@vercel/blob'
-import { ApiError } from './_lib/db'
-import { requireSession } from './_lib/auth'
+import { ApiError } from './_lib/db.js'
+import { requireSession } from './_lib/auth.js'
 
 // Handles both directions of the ImageUploader "Anexar imagem" flow:
 //   POST   /api/upload   — admin sends raw file bytes, gets back a public URL

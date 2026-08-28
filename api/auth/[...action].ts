@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { sql, ApiError } from '../_lib/db'
-import { getSession, hashPassword, verifyPassword, signSession, sessionCookieHeader, clearSessionCookieHeader } from '../_lib/auth'
+import { sql, ApiError } from '../_lib/db.js'
+import { getSession, hashPassword, verifyPassword, signSession, sessionCookieHeader, clearSessionCookieHeader } from '../_lib/auth.js'
 
 // Consolidated auth endpoint — every action Vercel would otherwise need a
 // separate function file for lives here, keeping the deployment's function

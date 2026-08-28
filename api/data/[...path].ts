@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { sql, ApiError, notFound } from '../_lib/db'
-import { getSession, requireSession, requireSuperAdmin, requireBusinessAccess, hashPassword } from '../_lib/auth'
+import { sql, ApiError, notFound } from '../_lib/db.js'
+import { getSession, requireSession, requireSuperAdmin, requireBusinessAccess, hashPassword } from '../_lib/auth.js'
 import {
   rowToBusiness, businessToRow,
   rowToCategory, rowToService, rowToProfessional, rowToCustomer,
   rowToAppointment, rowToBlockedDate, rowToGalleryImage, rowToTestimonial, rowToBanner,
-} from '../_lib/mappers'
-import { makeId, makeAppointmentCode } from '../../src/utils/id'
+} from '../_lib/mappers.js'
+import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
