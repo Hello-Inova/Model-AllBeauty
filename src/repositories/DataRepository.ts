@@ -26,7 +26,16 @@ export interface DataRepository {
   getBusinesses(): Promise<Business[]>
   getBusiness(id: string): Promise<Business | undefined>
   getBusinessBySlug(slug: string): Promise<Business | undefined>
-  createBusiness(data: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>): Promise<Business>
+  /**
+   * Creates a business AND its first admin login in one step — a real
+   * backend needs credentials to exist somewhere, so business creation and
+   * admin-account creation are no longer separable the way they were in the
+   * localStorage-only tier.
+   */
+  createBusiness(
+    data: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>,
+    admin: { email: string; password: string },
+  ): Promise<Business>
   updateBusiness(id: string, data: Partial<Business>): Promise<Business>
   deleteBusiness(id: string): Promise<void>
 

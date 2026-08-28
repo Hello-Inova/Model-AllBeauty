@@ -2,7 +2,7 @@
 
 Uma base de produto reutilizável para catálogo de serviços e agendamento online, pensada para salões de beleza, barbearias, clínicas de estética, spas, studios de unhas/cílios/sobrancelhas, clínicas de massagem, centros de bem-estar e profissionais autônomos baseados em agendamento.
 
-**A mesma base de código atende múltiplas empresas.** O que muda entre clientes são os dados, a identidade visual, os serviços, os profissionais, os horários e as imagens — nunca o código-fonte.
+**A mesma base de código atende múltiplas empresas reais.** O que muda entre clientes são os dados, a identidade visual, os serviços, os profissionais, os horários e as imagens — nunca o código-fonte. Todas as empresas ficam em um único banco de dados Postgres, isoladas por `business_id`, com autenticação real (senha com hash bcrypt, sessão JWT em cookie `httpOnly`) e imagens hospedadas no Vercel Blob.
 
 > Repositório oficial: https://github.com/Hello-Inova/Model-AllBeauty
 
@@ -11,14 +11,14 @@ Uma base de produto reutilizável para catálogo de serviços e agendamento onli
 ## Índice
 
 1. [Instalação e desenvolvimento](#instalação-e-desenvolvimento)
-2. [Deploy no GitHub Pages](#deploy-no-github-pages)
+2. [Deploy na Vercel (produção)](#deploy-na-vercel-produção)
 3. [Como criar uma nova empresa (sem código)](#como-criar-uma-nova-empresa-sem-código)
-4. [Acessos de demonstração](#acessos-de-demonstração)
+4. [Acessos gerados no seed](#acessos-gerados-no-seed)
 5. [Arquitetura](#arquitetura)
 6. [Estrutura de pastas](#estrutura-de-pastas)
-7. [Limitações do modo GitHub Pages](#limitações-do-modo-github-pages)
-8. [Segurança](#segurança)
-9. [Evolução para SaaS](#evolução-para-saas)
+7. [Segurança](#segurança)
+8. [Backup e restauração](#backup-e-restauração)
+9. [Evolução do produto](#evolução-do-produto)
 10. [Checklist de entrega](#checklist-de-entrega)
 
 ---
@@ -37,47 +37,75 @@ npm install
 npm run dev
 ```
 
+Para o painel funcionar em desenvolvimento local, as variáveis de ambiente descritas em [Deploy na Vercel](#deploy-na-vercel-produção) (`POSTGRES_URL`, `BLOB_READ_WRITE_TOKEN`, `JWT_SECRET`) precisam existir em um arquivo `.env.local` e o projeto precisa rodar com `vercel dev` (para que as funções em `/api` sejam servidas) em vez de `npm run dev` puro, que serve apenas o frontend estático.
+
 ### Build de produção
 
 ```bash
 npm run build
 ```
 
-Gera a pasta `/dist`, pronta para publicação em qualquer hospedagem estática (não depende de Node.js, PHP, banco de dados ou backend próprio em produção).
+Gera a pasta `/dist` com o frontend. As funções serverless em `/api` são publicadas automaticamente pela Vercel a partir do mesmo repositório — não fazem parte do `/dist`.
 
-### Pré-visualizar o build
+### Verificação de tipos das funções de API
+
+Como `/api` não faz parte do projeto TypeScript do frontend (`tsconfig.app.json` só inclui `src`), existe uma verificação própria:
 
 ```bash
-npm run preview
+npm run typecheck:api
 ```
 
 ---
 
-## Deploy no GitHub Pages
+## Deploy na Vercel (produção)
 
-Este repositório já inclui um workflow do GitHub Actions (`.github/workflows/deploy.yml`) que builda e publica o site automaticamente a cada `push` na branch `main`.
+O sistema usa **Vercel Postgres** (banco de dados) e **Vercel Blob** (armazenamento de imagens), com o frontend e as funções de API publicados no mesmo projeto Vercel a partir deste repositório GitHub.
 
-**Passo a passo:**
+### 1. Conectar o repositório
 
-1. Envie este código para o repositório `https://github.com/Hello-Inova/Model-AllBeauty` (branch `main`).
-2. No GitHub, acesse **Settings → Pages**.
-3. Em **Build and deployment → Source**, selecione **GitHub Actions**.
-4. Aguarde a Action "Deploy to GitHub Pages" concluir (aba **Actions** do repositório).
-5. O site ficará disponível em `https://hello-inova.github.io/Model-AllBeauty/`.
+1. Em [vercel.com](https://vercel.com), **Add New → Project** e importe `Hello-Inova/Model-AllBeauty`.
+2. A Vercel detecta o `vercel.json` deste repositório automaticamente (build `npm run build`, saída em `dist`, rewrites de SPA e funções em `/api`). Não é necessário configurar nada manualmente aqui.
+3. Ainda não clique em "Deploy" definitivo — antes, configure o banco, o storage e as variáveis de ambiente abaixo (o primeiro deploy pode falhar sem elas, e isso é normal; basta fazer um redeploy depois).
 
-O workflow builda o projeto com `VITE_BASE_PATH=/Model-AllBeauty/`, garantindo que CSS, JavaScript, imagens e ícones carreguem corretamente dentro do subcaminho do repositório. Caso o repositório seja publicado como um site raiz de usuário/organização (`https://hello-inova.github.io/`), ajuste essa variável para `/` no arquivo do workflow.
+### 2. Criar o banco de dados (Postgres)
+
+1. No projeto na Vercel, aba **Storage → Create Database → Postgres** (via Neon, integração nativa da Vercel).
+2. Depois de criado, a Vercel injeta automaticamente as variáveis `POSTGRES_URL` (ou `DATABASE_URL`, dependendo da versão da integração — o código já reconhece as duas) no projeto.
+3. Abra o **Query** (console SQL) do banco pelo próprio painel da Vercel e cole o conteúdo do arquivo [`db/schema.sql`](./db/schema.sql) deste repositório. Execute. Isso cria todas as tabelas (`businesses`, `admin_users`, `categories`, `services`, `professionals`, `customers`, `appointments`, `blocked_dates`, `gallery_images`, `testimonials`, `banners`).
+4. No mesmo console, cole o conteúdo do arquivo [`db/seed.sql`](./db/seed.sql) e execute. Isso cadastra a empresa de demonstração **Beauty Demo** (14 serviços, 7 categorias, 6 profissionais, clientes e agendamentos de exemplo) e um usuário **super admin**, com senhas já criptografadas (bcrypt) — as senhas em texto puro geradas nesse processo estão listadas em [Acessos gerados no seed](#acessos-gerados-no-seed) e não ficam salvas em nenhum arquivo do repositório.
+
+> Se quiser gerar um novo `db/seed.sql` com senhas diferentes (por exemplo, antes de entregar o sistema a um cliente), rode `npm run generate-seed` neste projeto — o script reaproveita os dados de demonstração já existentes em `src/data/demoData.ts`, gera senhas aleatórias novas e imprime as credenciais no terminal uma única vez.
+
+### 3. Criar o armazenamento de imagens (Blob)
+
+1. Aba **Storage → Create Database → Blob**.
+2. A Vercel injeta automaticamente a variável `BLOB_READ_WRITE_TOKEN` no projeto.
+
+### 4. Configurar a variável de sessão
+
+Em **Settings → Environment Variables**, adicione:
+
+| Nome | Valor |
+|---|---|
+| `JWT_SECRET` | Uma string longa e aleatória (ex: gere com `openssl rand -base64 48`). Usada para assinar as sessões de login — **nunca reutilize um valor de exemplo em produção**. |
+
+As demais variáveis (`POSTGRES_URL`/`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`) já foram criadas automaticamente nos passos 2 e 3.
+
+### 5. Deploy
+
+Com o banco, o storage e o `JWT_SECRET` configurados, clique em **Deploy** (ou **Redeploy**, se o primeiro deploy tiver ocorrido antes desse passo). A partir daqui, **todo `git push` na branch `main` publica uma nova versão automaticamente** — não é necessário rodar nenhum comando de deploy manual.
 
 ### Roteamento
 
-A aplicação usa **HashRouter** (URLs como `/#/empresa/beauty-demo`). Isso é proposital: hospedagem estática como o GitHub Pages não suporta rewrites de servidor, e o HashRouter garante que **atualizar a página, compartilhar links diretos e navegar entre seções sempre funcione**, sem necessidade de configuração adicional. Como reforço extra, o workflow também copia `index.html` para `404.html` no build.
+A aplicação usa **BrowserRouter** com URLs limpas (ex: `/empresa/beauty-demo`, sem `#`). O `vercel.json` já inclui a regra de rewrite necessária para que atualizar a página, compartilhar links diretos e navegar entre seções funcione corretamente em qualquer rota — inclusive dentro do `/api`, que é excluído do rewrite.
 
 ---
 
 ## Como criar uma nova empresa (sem código)
 
-Não é necessário alterar uma linha de código para publicar o site de uma nova empresa.
+Não é necessário alterar uma linha de código para publicar o site de uma nova empresa. O cadastro de empresas é feito pelo dono da plataforma (Hello Inova) através do painel Super Admin — não existe cadastro público autoatendido.
 
-1. Acesse **`/#/super-admin/login`** e entre com as credenciais de demonstração (veja abaixo).
+1. Acesse **`/super-admin/login`** e entre com as credenciais de super admin (veja [Acessos gerados no seed](#acessos-gerados-no-seed)).
 2. Clique em **"Nova empresa"**.
 3. Siga o assistente de 10 passos:
    1. Nome e segmento da empresa
@@ -88,10 +116,11 @@ Não é necessário alterar uma linha de código para publicar o site de uma nov
    6. Categorias de serviços
    7. Serviços
    8. Profissionais
-   9. Configurações (plano)
+   9. Configurações (plano e **acesso do administrador** — e-mail e senha que a empresa usará para entrar no próprio painel)
    10. Revisão e publicação
-4. Ao concluir, a empresa já está no ar em `/#/empresa/<slug-da-empresa>` e pronta para receber agendamentos.
-5. Use o **painel administrativo** (`/#/admin/<slug>/login`) para refinar tudo depois: adicionar mais serviços, fotos, profissionais, ajustar preços, políticas de agendamento etc. — tudo pelo navegador.
+4. Ao concluir, a empresa já está no ar em `/empresa/<slug-da-empresa>` e pronta para receber agendamentos, com um login de administrador real (senha com hash bcrypt) já criado.
+5. Repasse o e-mail e a senha definidos no passo 9 para o cliente. Recomende que ele troque a senha no primeiro acesso, em **Configurações → Alterar senha** no painel administrativo.
+6. Use o **painel administrativo** (`/admin/<slug>/login`) para refinar tudo depois: adicionar mais serviços, fotos, profissionais, ajustar preços, políticas de agendamento etc. — tudo pelo navegador.
 
 ### O que pode ser personalizado pelo painel, sem código
 
@@ -99,16 +128,18 @@ Nome, logo, favicon, cores (primária/secundária/destaque/fundo), descrição, 
 
 ---
 
-## Acessos de demonstração
+## Acessos gerados no seed
 
-> ⚠️ Autenticação de demonstração — válida apenas para avaliar o produto neste ambiente local/estático. Veja [Segurança](#segurança).
+As credenciais abaixo são as que o `db/seed.sql` atualmente versionado neste repositório cria no banco (senha já em hash bcrypt — o texto puro só existe no momento em que o script `generate-seed` roda, e foi entregue separadamente a quem publicou o sistema). **Troque as duas senhas assim que possível** em **Configurações → Alterar senha** (empresa) e no painel do super admin.
 
-| Painel | URL | Usuário | Senha |
-|---|---|---|---|
-| Admin da empresa demo | `/#/admin/beauty-demo/login` | qualquer e-mail | `demo123` |
-| Super Admin | `/#/super-admin/login` | `super@plataforma.com` | `superadmin123` |
+| Painel | URL | Usuário |
+|---|---|---|
+| Admin da empresa demo (Beauty Demo) | `/admin/beauty-demo/login` | `contato@beautydemo.com.br` |
+| Super Admin | `/super-admin/login` | `super@plataforma.com` |
 
-A empresa de demonstração **Beauty Demo** já vem com dados completos: 14 serviços, 7 categorias, 6 profissionais, 12 clientes, 12 agendamentos (com status variados), 12 imagens na galeria e 6 depoimentos — todos claramente identificados como **dados demonstrativos**, com fotos reais licenciadas do Unsplash relacionadas a cada conteúdo (cabelo, unhas, sobrancelhas, cílios, massagem, skincare etc.).
+Se as senhas originais foram perdidas, gere um novo `db/seed.sql` com `npm run generate-seed` (isso recria os dados de demonstração com senhas novas — não afeta empresas reais já cadastradas, já que o seed usa `ON CONFLICT ... DO NOTHING`) ou, mais simples, atualize a senha de um usuário específico diretamente no console SQL da Vercel gerando um novo hash bcrypt.
+
+A empresa de demonstração **Beauty Demo** vem com dados completos: 14 serviços, 7 categorias, 6 profissionais, clientes e agendamentos de exemplo, imagens de galeria e depoimentos — todos com fotos reais licenciadas do Unsplash. Ela pode ser mantida como vitrine do produto ou removida do banco quando não for mais necessária.
 
 ---
 
@@ -122,9 +153,13 @@ DADOS DA EMPRESA (business_id)
 SITE + PAINEL DA EMPRESA
 ```
 
-- **Multiempresa real:** toda entidade (serviços, categorias, profissionais, clientes, agendamentos, horários, bloqueios, galeria, depoimentos) é isolada por `businessId`. Nunca há mistura de dados entre empresas.
-- **Camada de dados única (`DataRepository`):** nenhum componente acessa `localStorage` diretamente. Todos passam por `src/repositories/DataRepository.ts`, hoje implementado por `LocalStorageProvider`. Trocar para um backend real (Supabase, Firebase, API REST) significa criar um novo provider que implementa a mesma interface — **o frontend não muda**.
-- **Camada de imagens (`ImageStorage`):** mesmo princípio. Hoje implementado por `LocalImageStorage` (IndexedDB para anexos, URL direta para imagens externas). Preparado para `SupabaseImageStorage` / `FirebaseImageStorage` / `CloudinaryImageStorage` no futuro.
+- **Multiempresa real:** toda entidade (serviços, categorias, profissionais, clientes, agendamentos, horários, bloqueios, galeria, depoimentos) é isolada por `business_id` em um único banco Postgres. Nunca há mistura de dados entre empresas.
+- **Banco de dados real (Vercel Postgres):** schema relacional em [`db/schema.sql`](./db/schema.sql), com campos complexos (imagens, horários, políticas de agendamento) guardados como `jsonb` para espelhar de perto os tipos TypeScript do frontend.
+- **Camada de dados única (`DataRepository`):** nenhum componente acessa o banco diretamente. Todos passam por `src/repositories/DataRepository.ts`, hoje implementado por `ApiProvider` (`src/repositories/providers/ApiProvider.ts`), que fala com as funções serverless em `/api` via `fetch`.
+- **Camada de imagens (`ImageStorage`):** mesmo princípio, implementado por `ApiImageStorage`, que envia os arquivos para `/api/upload` e estes são armazenados no **Vercel Blob** — as URLs geradas são públicas e permanentes, acessíveis de qualquer dispositivo/rede.
+- **Funções serverless (`/api`):** consolidadas em apenas 3 arquivos para não esbarrar em limites de quantidade de funções dos planos da Vercel — `api/auth/[...action].ts` (login, logout, sessão, troca de senha), `api/data/[...path].ts` (CRUD de todas as entidades) e `api/upload.ts` (upload/remoção de imagens no Blob). Lógica compartilhada fica em `api/_lib/` (conexão com o banco, autenticação/sessão, conversão linha↔objeto).
+- **Autenticação real:** senha com hash **bcrypt** (nunca texto puro), sessão assinada em **JWT** e guardada em cookie `httpOnly`, `Secure`, `SameSite=Lax` — o token nunca fica acessível a JavaScript no navegador nem em `localStorage`.
+- **Autorização por rota:** leitura pública apenas para o que o site institucional e o agendamento realmente precisam (catálogo, disponibilidade de horários); leitura completa de clientes/agendamentos e qualquer escrita fora da criação de agendamento exigem sessão de administrador da própria empresa ou do super admin.
 - **Identidade visual dinâmica:** cada empresa define suas cores, que são injetadas como CSS Variables (`--color-primary`, `--color-secondary`, etc.) em tempo de execução — o mesmo CSS atende qualquer paleta.
 - **Componente único de upload de imagem (`ImageUploader`):** usado em todas as áreas administrativas (logo, favicon, capa, hero, serviços, profissionais, galeria, depoimentos, banners), com suporte a URL e anexo de arquivo, preview, validação e fallback — nunca duplicado por módulo.
 - **Tabelas com scroll obrigatório (`ScrollableTable`):** toda tabela do sistema usa esse componente, garantindo que nenhuma tabela jamais quebre o layout, com scroll horizontal e vertical contidos dentro do próprio componente.
@@ -134,6 +169,19 @@ SITE + PAINEL DA EMPRESA
 ## Estrutura de pastas
 
 ```
+api/
+├── _lib/             Conexão com o banco, autenticação/sessão, mapeamento linha↔objeto
+├── auth/[...action].ts   Login, logout, sessão atual, troca de senha
+├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos etc.
+└── upload.ts         Upload e remoção de imagens no Vercel Blob
+
+db/
+├── schema.sql        DDL de todas as tabelas (rodar uma vez, na criação do banco)
+└── seed.sql          Dados de demonstração + super admin (gerado por scripts/generate-seed.mts)
+
+scripts/
+└── generate-seed.mts Gera db/seed.sql a partir de src/data/demoData.ts, com senhas novas
+
 src/
 ├── components/       Componentes reutilizáveis (públicos, admin e genéricos)
 ├── pages/            Páginas (public/, admin/, superadmin/)
@@ -145,64 +193,57 @@ src/
 ├── utils/             Disponibilidade de horários, formatação, validação, WhatsApp, slugs
 ├── config/            Constantes globais
 ├── themes/            Aplicação de tema/CSS variables
-└── data/              Dados demonstrativos (empresa "Beauty Demo")
+└── data/              Dados demonstrativos (empresa "Beauty Demo"), fonte do seed SQL
 ```
-
----
-
-## Limitações do modo GitHub Pages
-
-Este modo (Nível 1 da arquitetura) é adequado para **demonstração, protótipo, MVP, uso local e apresentação comercial**.
-
-Como o armazenamento é local ao navegador (localStorage + IndexedDB para imagens anexadas):
-
-- **Os dados não sincronizam automaticamente entre computadores, navegadores ou celulares.** Cada dispositivo/navegador tem sua própria cópia dos dados.
-- Limpar os dados do navegador apaga os dados da(s) empresa(s) — **faça backups regulares** pelo painel administrativo (Backup → Exportar).
-- Múltiplos atendentes usando o painel ao mesmo tempo em dispositivos diferentes **não veem as mudanças um do outro** em tempo real.
-- WhatsApp e o mapa incorporado dependem de conexão com a internet.
-
-Para uma operação comercial real com múltiplos usuários simultâneos, é necessário evoluir para o **Nível 2/3** (veja abaixo): backend, banco de dados, autenticação real, API e armazenamento de arquivos. **O armazenamento local não deve ser apresentado como solução definitiva para produção multiusuário.**
 
 ---
 
 ## Segurança
 
-O login administrativo deste build é **autenticação de demonstração**, feita inteiramente no frontend (sem servidor). Ela impede acesso casual à interface, mas **não é segurança real** — qualquer pessoa com acesso ao navegador/DevTools pode contornar essa proteção. Não use dados sensíveis de clientes reais neste modo sem estar ciente dessa limitação.
-
-Ao evoluir para backend, substitua `src/contexts/AuthContext.tsx` por autenticação real (Supabase Auth, Firebase Auth ou JWT via API), com controle de acesso aplicado no servidor — nunca apenas no cliente.
+- Senhas de administradores **nunca** são armazenadas em texto puro — apenas o hash bcrypt (`api/_lib/auth.ts`).
+- A sessão de login é um **JWT assinado** (chave em `JWT_SECRET`, configurada só no ambiente da Vercel, nunca no código), guardado em um cookie `httpOnly` + `Secure` + `SameSite=Lax`. Isso significa que o token de sessão não pode ser lido por JavaScript no navegador (mitiga XSS) e não é enviado em requisições de outros sites (mitiga CSRF básico).
+- Toda escrita de dados administrativos (empresas, catálogo, clientes, configurações) exige sessão válida, verificada no servidor a cada requisição — nunca apenas no frontend.
+- Leitura pública é limitada ao necessário para o site institucional e o agendamento (catálogo de serviços/profissionais, disponibilidade de horários). Dados de clientes (telefone, e-mail, anotações) e o conteúdo completo de agendamentos só são retornados para quem está autenticado na própria empresa ou é super admin.
+- O `JWT_SECRET` deve ser um valor longo, aleatório e exclusivo deste ambiente de produção — nunca reutilize um valor de exemplo ou de desenvolvimento.
 
 ---
 
-## Evolução para SaaS
+## Backup e restauração
 
-O projeto foi desenhado em três níveis:
+Cada empresa pode exportar (**Painel → Backup → Exportar backup**) um arquivo `.json` com todos os seus dados (serviços, categorias, profissionais, clientes, agendamentos, galeria, depoimentos) e restaurá-lo depois pelo mesmo painel. Isso é útil como cópia de segurança adicional e para mover dados entre ambientes — o banco de dados na Vercel já é a fonte de verdade e não depende desses backups para funcionar no dia a dia.
 
-| Nível | Stack | Objetivo |
+---
+
+## Evolução do produto
+
+| Nível | Stack | Status |
 |---|---|---|
-| 1 — GitHub Pages (este build) | React + LocalStorage/IndexedDB + PWA | MVP funcional e demonstração |
-| 2 — Backend | + Supabase/Firebase/API REST | Banco centralizado e sincronização real |
-| 3 — SaaS | + multi-tenancy no backend, autenticação real, pagamentos (Asaas/Mercado Pago/Stripe), planos, domínios próprios, WhatsApp API, storage de imagens em nuvem | Produto comercial completo |
+| 1 — Demonstração | React + LocalStorage/IndexedDB | Superado — usado apenas durante o desenvolvimento inicial do produto |
+| 2 — Backend real (atual) | React + Vercel Postgres + Vercel Blob + funções serverless + autenticação JWT/bcrypt | **Em produção** |
+| 3 — SaaS autoatendido | + cadastro público de novas empresas, pagamentos (Asaas/Mercado Pago/Stripe), planos cobrados automaticamente, domínios próprios por empresa, integração com WhatsApp API | Não implementado — hoje o cadastro de empresas é feito pelo super admin (Hello Inova), por decisão de escopo |
 
-Nenhuma dessas evoluções exige reescrever o frontend: a camada `DataRepository`/`ImageStorage` foi criada exatamente para isso.
+A camada `DataRepository`/`ImageStorage` foi criada exatamente para permitir essas evoluções sem reescrever o frontend.
 
 ---
 
 ## Checklist de entrega
 
-- [x] Build (`npm install && npm run build`) sem erros de TypeScript
+- [x] Build do frontend (`npm install && npm run build`) sem erros de TypeScript
+- [x] Verificação de tipos das funções de API (`npm run typecheck:api`) sem erros
 - [x] Site público completo (home, serviços, profissional, sobre, galeria, contato, agendamento)
 - [x] Agendamento com cálculo de disponibilidade (duração, horários, folgas, bloqueios, conflitos)
 - [x] Painel administrativo completo (dashboard, agenda, serviços, categorias, profissionais, clientes, galeria, depoimentos, configurações, backup)
-- [x] Super Admin com criação de novas empresas via assistente
+- [x] Super Admin com criação de novas empresas via assistente, já com login de administrador real
+- [x] Banco de dados Postgres real, multiempresa, com isolamento total de dados por `business_id`
+- [x] Autenticação real (bcrypt + JWT + cookie httpOnly), substituindo a autenticação de demonstração
+- [x] Upload de imagens real (Vercel Blob), substituindo base64/IndexedDB
 - [x] Upload de imagens por URL e por anexo, com preview e fallback, em todas as áreas visuais
 - [x] Tabelas com scroll obrigatório (nunca quebram o layout)
-- [x] Multiempresa com isolamento total de dados
 - [x] Empresa demonstrativa "Beauty Demo" completa, com fotos reais relacionadas ao conteúdo
 - [x] PWA (manifest, ícones, service worker)
 - [x] SEO dinâmico (title, meta description, Open Graph, schema.org, robots.txt, sitemap.xml)
-- [x] Responsivo (mobile-first)
-- [x] GitHub Actions para deploy automático no GitHub Pages
-- [x] Arquitetura preparada para backend real (Supabase/Firebase/API)
+- [x] Responsivo (mobile-first, auditado em 320px/375px em todas as rotas)
+- [x] Deploy automático na Vercel a cada `push` na branch `main`
 
 ---
 

@@ -17,9 +17,9 @@ export function AdminGate() {
 
 function AdminGateInner({ slug }: { slug: string }) {
   const { business, loading, notFound } = useBusinessContext()
-  const { session } = useAuth()
+  const { session, loading: authLoading } = useAuth()
 
-  if (loading) return <FullPageLoader />
+  if (loading || authLoading) return <FullPageLoader />
   if (notFound || !business) return <BusinessNotFound />
   if (!session || (session.businessSlug !== slug && session.role !== 'super_admin')) {
     return <Navigate to={adminRoutes.login(slug)} replace />

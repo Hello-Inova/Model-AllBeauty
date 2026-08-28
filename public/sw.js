@@ -22,6 +22,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   const url = new URL(request.url)
   if (url.origin !== self.location.origin) return
+  // Never cache API calls: they carry per-session, per-business data (login
+  // state, catalog, availability) that must always come from the network,
+  // never from a stale-while-revalidate cache shared across sessions/users.
+  if (url.pathname.startsWith('/api/')) return
 
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {

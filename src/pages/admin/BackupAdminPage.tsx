@@ -62,13 +62,13 @@ export function BackupAdminPage() {
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex gap-3">
         <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
         <p className="text-sm text-amber-800">
-          No modo GitHub Pages, os dados ficam salvos apenas no armazenamento local deste navegador. Faça backups regularmente — limpar os dados do navegador ou trocar de dispositivo fará você perder o acesso aos dados atuais, a menos que restaure um backup.
+          Seus dados ficam salvos em um banco de dados real na nuvem. Ainda assim, recomendamos exportar um backup periodicamente — ele ajuda a recuperar informações rapidamente em caso de exclusão acidental de itens no painel.
         </p>
       </div>
 
-      <SectionCard title="Sobre o armazenamento local">
+      <SectionCard title="Sobre o armazenamento">
         <div className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
-          <DatabaseBackup size={16} /> Dados armazenados localmente (localStorage + IndexedDB para imagens anexadas).
+          <DatabaseBackup size={16} /> Dados armazenados em banco de dados na nuvem, com imagens hospedadas de forma segura e acessíveis de qualquer dispositivo.
         </div>
       </SectionCard>
     </div>

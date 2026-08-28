@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ShieldCheck } from 'lucide-react'
-import { useAuth, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD } from '../../contexts/AuthContext'
+import { ShieldCheck, LogIn } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 import { Button, Field, Input, PasswordInput } from '../../components/Form'
 import { superAdminRoutes } from '../../utils/routes'
 
@@ -11,12 +11,17 @@ export function SuperAdminLoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   if (session?.role === 'super_admin') return <Navigate to={superAdminRoutes.home} replace />
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (loginSuperAdmin(email, password)) navigate(superAdminRoutes.home)
+    setSubmitting(true)
+    setError(null)
+    const ok = await loginSuperAdmin(email, password)
+    setSubmitting(false)
+    if (ok) navigate(superAdminRoutes.home)
     else setError('Credenciais inválidas.')
   }
 
@@ -28,12 +33,9 @@ export function SuperAdminLoginPage() {
           <h1 className="font-heading text-lg font-semibold">Super Admin</h1>
           <p className="text-xs text-[var(--color-muted-foreground,#6b625a)]">Gestão da plataforma e das empresas</p>
         </div>
-        <Field label="E-mail"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={SUPER_ADMIN_EMAIL} /></Field>
+        <Field label="E-mail"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@suaempresa.com" /></Field>
         <Field label="Senha" error={error ?? undefined}><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
-        <Button type="submit">Entrar</Button>
-        <p className="text-xs text-center text-[var(--color-muted-foreground,#6b625a)]">
-          Demonstração: {SUPER_ADMIN_EMAIL} / {SUPER_ADMIN_PASSWORD}
-        </p>
+        <Button type="submit" icon={<LogIn size={16} />} loading={submitting}>Entrar</Button>
       </form>
     </div>
   )

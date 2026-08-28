@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { LogIn, Building2 } from 'lucide-react'
 import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessContext'
-import { useAuth, DEMO_ADMIN_PASSWORD } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { Button, Field, Input, PasswordInput } from '../../components/Form'
 import { SmartImage } from '../../components/SmartImage'
 import { FullPageLoader, BusinessNotFound } from '../../components/StateScreens'
@@ -25,6 +25,7 @@ function AdminLoginInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   if (loading) return <FullPageLoader />
   if (notFound || !business) return <BusinessNotFound />
@@ -33,10 +34,13 @@ function AdminLoginInner() {
     return <Navigate to={adminRoutes.dashboard(business.slug)} replace />
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!business) return
-    const ok = loginBusinessAdmin(business.slug, email || business.email, password)
+    setSubmitting(true)
+    setError(null)
+    const ok = await loginBusinessAdmin(business.slug, email || business.email, password)
+    setSubmitting(false)
     if (ok) navigate(adminRoutes.dashboard(business.slug))
     else setError('E-mail ou senha inválidos.')
   }
@@ -56,10 +60,7 @@ function AdminLoginInner() {
         <Field label="Senha" htmlFor="password" error={error ?? undefined}>
           <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </Field>
-        <Button type="submit" icon={<LogIn size={16} />}>Entrar</Button>
-        <p className="text-xs text-center text-[var(--color-muted-foreground)]">
-          Ambiente de demonstração — use a senha <strong>{DEMO_ADMIN_PASSWORD}</strong> com qualquer e-mail.
-        </p>
+        <Button type="submit" icon={<LogIn size={16} />} loading={submitting}>Entrar</Button>
       </form>
     </div>
   )

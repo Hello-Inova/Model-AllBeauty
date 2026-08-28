@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react'
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ToastProvider } from './contexts/ToastContext'
 import { AuthProvider } from './contexts/AuthContext'
-import { ensureSeedData } from './repositories'
-import { FullPageLoader } from './components/StateScreens'
 import { NotFoundPage } from './components/StateScreens'
 import { ScrollToTop } from './components/ScrollToTop'
 
@@ -37,17 +34,8 @@ import { SuperAdminDashboardPage } from './pages/superadmin/SuperAdminDashboardP
 import { SuperAdminOnboardingPage } from './pages/superadmin/SuperAdminOnboardingPage'
 
 export default function AppRouter() {
-  const [ready, setReady] = useState(false)
-
-  useEffect(() => {
-    ensureSeedData()
-    setReady(true)
-  }, [])
-
-  if (!ready) return <FullPageLoader />
-
   return (
-    <HashRouter>
+    <BrowserRouter>
       <ScrollToTop />
       <ToastProvider>
         <AuthProvider>
@@ -89,6 +77,6 @@ export default function AppRouter() {
           </Routes>
         </AuthProvider>
       </ToastProvider>
-    </HashRouter>
+    </BrowserRouter>
   )
 }

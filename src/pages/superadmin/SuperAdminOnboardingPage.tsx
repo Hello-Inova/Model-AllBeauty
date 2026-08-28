@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight, Plus, Rocket, Trash2 } from 'lucide-react'
 import { dataRepository } from '../../repositories'
 import type { DaySchedule, ImageAsset, PlanId } from '../../types'
-import { Button, Field, Input, Select, TextArea, Toggle } from '../../components/Form'
+import { Button, Field, Input, PasswordInput, Select, TextArea, Toggle } from '../../components/Form'
 import { ImageUploader } from '../../components/ImageUploader'
 import { WeeklyHoursEditor } from '../../components/admin/WeeklyHoursEditor'
 import { slugify } from '../../utils/slug'
@@ -61,12 +61,18 @@ export function SuperAdminOnboardingPage() {
   const [professionals, setProfessionals] = useState<DraftProfessional[]>([])
   // Step 9
   const [plan, setPlan] = useState<PlanId>('basico')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
 
   const slug = slugify(name || 'nova-empresa')
 
   function next() {
     if (step === 1 && !name.trim()) {
       toast.error('Informe o nome da empresa.')
+      return
+    }
+    if (step === 9 && adminPassword && adminPassword.length < 6) {
+      toast.error('A senha de acesso deve ter ao menos 6 caracteres.')
       return
     }
     if (step < 10) setStep((s) => (s + 1) as Step)
@@ -76,6 +82,17 @@ export function SuperAdminOnboardingPage() {
   }
 
   async function handlePublish() {
+    const finalAdminEmail = (adminEmail || email).trim()
+    if (!finalAdminEmail) {
+      toast.error('Informe o e-mail de acesso do administrador (passo 9).')
+      setStep(9)
+      return
+    }
+    if (adminPassword.length < 6) {
+      toast.error('A senha de acesso deve ter ao menos 6 caracteres (passo 9).')
+      setStep(9)
+      return
+    }
     setPublishing(true)
     try {
       const business = await dataRepository.createBusiness({
@@ -119,7 +136,7 @@ export function SuperAdminOnboardingPage() {
           requireNotes: false,
           paymentPolicy: 'pay_on_site',
         },
-      })
+      }, { email: finalAdminEmail, password: adminPassword })
 
       const categoryIdMap = new Map<string, string>()
       for (const c of categories.filter((c) => c.name.trim())) {
@@ -160,8 +177,9 @@ export function SuperAdminOnboardingPage() {
 
       toast.success('Empresa publicada com sucesso!')
       navigate(adminRoutes.dashboard(business.slug))
-    } catch {
-      toast.error('Não foi possível publicar a empresa. Verifique os dados e tente novamente.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : null
+      toast.error(message || 'Não foi possível publicar a empresa. Verifique os dados e tente novamente.')
     } finally {
       setPublishing(false)
     }
@@ -296,6 +314,15 @@ export function SuperAdminOnboardingPage() {
               </Select>
             </Field>
             <Toggle checked label="Site publicado assim que criado" onChange={() => {}} />
+            <div className="pt-2 border-t border-[var(--color-border,#e5e0d6)] flex flex-col gap-4">
+              <p className="text-xs text-[var(--color-muted-foreground)]">Crie o acesso do administrador desta empresa — ele usará esse e-mail e senha para entrar no painel.</p>
+              <Field label="E-mail de acesso" required hint="Se deixar em branco, será usado o e-mail de contato.">
+                <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder={email || 'admin@empresa.com'} />
+              </Field>
+              <Field label="Senha de acesso" required hint="Mínimo de 6 caracteres.">
+                <PasswordInput value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
+              </Field>
+            </div>
             <p className="text-xs text-[var(--color-muted-foreground)]">Após publicar, você pode ajustar qualquer configuração pelo painel administrativo, sem editar código.</p>
           </div>
         )}

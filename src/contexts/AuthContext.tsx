@@ -1,76 +1,94 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import { STORAGE_PREFIX } from '../config'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 /**
- * DEMONSTRATION AUTHENTICATION ONLY.
- *
- * This is a frontend-only session flag meant to gate the admin UI in the
- * GitHub Pages / MVP tier. It provides no real security — anyone with
- * browser dev tools can bypass it. When this project grows a real backend,
- * replace this file with Supabase Auth / Firebase Auth / a JWT-based
- * ApiProvider and enforce access control server-side. See README →
- * "Segurança" for details.
+ * Real authentication: the server verifies email/password against
+ * admin_users (bcrypt hash) and issues an httpOnly session cookie — this
+ * context never sees or stores a password or token itself, it only mirrors
+ * what the server confirms. See api/auth/[...action].ts.
  */
-
-export const DEMO_ADMIN_PASSWORD = 'demo123'
-export const SUPER_ADMIN_EMAIL = 'super@plataforma.com'
-export const SUPER_ADMIN_PASSWORD = 'superadmin123'
 
 interface AdminSession {
   businessSlug: string
   email: string
-  role: 'owner' | 'super_admin'
+  role: 'owner' | 'manager' | 'staff' | 'super_admin'
 }
 
 interface AuthContextValue {
   session: AdminSession | null
-  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => boolean
-  loginSuperAdmin: (email: string, password: string) => boolean
-  logout: () => void
+  loading: boolean
+  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<boolean>
+  loginSuperAdmin: (email: string, password: string) => Promise<boolean>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-const SESSION_KEY = `${STORAGE_PREFIX}:admin-session`
 
-function readSession(): AdminSession | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    return raw ? (JSON.parse(raw) as AdminSession) : null
-  } catch {
-    return null
-  }
+async function api<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(`/api/auth/${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error ?? 'Não foi possível completar a operação.')
+  return data as T
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AdminSession | null>(() => readSession())
+  const [session, setSession] = useState<AdminSession | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const persist = useCallback((s: AdminSession | null) => {
-    setSession(s)
-    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s))
-    else localStorage.removeItem(SESSION_KEY)
+  useEffect(() => {
+    let cancelled = false
+    api<{ session: AdminSession | null }>('me')
+      .then((r) => {
+        if (!cancelled) setSession(r.session)
+      })
+      .catch(() => {
+        if (!cancelled) setSession(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const loginBusinessAdmin = useCallback(
-    (businessSlug: string, email: string, password: string) => {
-      if (password !== DEMO_ADMIN_PASSWORD) return false
-      persist({ businessSlug, email, role: 'owner' })
+  const loginBusinessAdmin = useCallback(async (businessSlug: string, email: string, password: string) => {
+    try {
+      const r = await api<{ session: AdminSession }>('login-admin', { businessSlug, email, password })
+      setSession(r.session)
       return true
-    },
-    [persist],
-  )
+    } catch {
+      return false
+    }
+  }, [])
 
-  const loginSuperAdmin = useCallback(
-    (email: string, password: string) => {
-      if (email !== SUPER_ADMIN_EMAIL || password !== SUPER_ADMIN_PASSWORD) return false
-      persist({ businessSlug: '*', email, role: 'super_admin' })
+  const loginSuperAdmin = useCallback(async (email: string, password: string) => {
+    try {
+      const r = await api<{ session: AdminSession }>('login-super', { email, password })
+      setSession(r.session)
       return true
-    },
-    [persist],
+    } catch {
+      return false
+    }
+  }, [])
+
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    await api('change-password', { currentPassword, newPassword })
+  }, [])
+
+  const logout = useCallback(async () => {
+    await api('logout', {}).catch(() => {})
+    setSession(null)
+  }, [])
+
+  const value = useMemo(
+    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, logout }),
+    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, logout],
   )
-
-  const logout = useCallback(() => persist(null), [persist])
-
-  const value = useMemo(() => ({ session, loginBusinessAdmin, loginSuperAdmin, logout }), [session, loginBusinessAdmin, loginSuperAdmin, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

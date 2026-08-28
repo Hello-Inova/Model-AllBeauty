@@ -1,7 +1,7 @@
 // Central place for building URLs so no component hardcodes a path shape.
-// The app uses HashRouter, which is what makes navigation, refreshes and
-// deep links all work correctly on GitHub Pages without any server-side
-// rewrite rules.
+// The app uses BrowserRouter with clean URLs; vercel.json provides the
+// server-side rewrite that makes navigation, refreshes and deep links all
+// work correctly in production.
 
 export const publicRoutes = {
   home: (slug: string) => `/empresa/${slug}`,
