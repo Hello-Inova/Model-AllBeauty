@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Quote, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Quote, Star, UserRound } from 'lucide-react'
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
 import { useTestimonials } from '../../hooks/useEntities'
 import { dataRepository, imageStorage } from '../../repositories'
@@ -89,7 +89,7 @@ export function TestimonialsAdminPage() {
           {testimonials.map((t) => (
             <div key={t.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-4 flex flex-col gap-2.5">
               <div className="flex items-center gap-2.5">
-                <SmartImage asset={t.photo} alt={t.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" />
+                <SmartImage asset={t.photo} alt={t.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" icon={UserRound} iconSize={16} />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{t.name}</p>
                   <div className="flex gap-0.5 text-amber-400">

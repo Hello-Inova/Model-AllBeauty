@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Images, ArrowUp, ArrowDown, Pencil } from 'lucide-react'
+import { Plus, Trash2, Images, ArrowUp, ArrowDown, Pencil, Camera } from 'lucide-react'
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
 import { useGallery } from '../../hooks/useEntities'
 import { dataRepository, imageStorage } from '../../repositories'
@@ -98,7 +98,7 @@ export function GalleryAdminPage() {
           {[...gallery].sort((a, b) => a.order - b.order).map((g, i, arr) => (
             <div key={g.id} className="rounded-xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-card)]">
               <div className="aspect-square">
-                <SmartImage asset={g.image} alt={g.title || 'Imagem'} className="w-full h-full object-cover" />
+                <SmartImage asset={g.image} alt={g.title || 'Imagem'} className="w-full h-full object-cover" icon={Camera} />
               </div>
               <div className="p-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">

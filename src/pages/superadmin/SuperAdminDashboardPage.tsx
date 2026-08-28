@@ -74,7 +74,7 @@ export function SuperAdminDashboardPage() {
                   <tr key={b.id}>
                     <Td>
                       <div className="flex items-center gap-2.5">
-                        <SmartImage asset={b.logo} alt={b.name} className="h-8 w-8 rounded-full object-cover" fallbackClassName="h-8 w-8 rounded-full" />
+                        <SmartImage asset={b.logo} alt={b.name} className="h-8 w-8 rounded-full object-cover" fallbackClassName="h-8 w-8 rounded-full" icon={Building2} iconSize={16} />
                         <div>
                           <p className="font-medium">{b.displayName}</p>
                           <p className="text-xs text-[var(--color-muted-foreground)]">/{b.slug}</p>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
-import { Menu, X, CalendarPlus } from 'lucide-react'
+import { Menu, X, CalendarPlus, Building2 } from 'lucide-react'
 import type { Business } from '../../types'
 import { publicRoutes } from '../../utils/routes'
 import { SmartImage } from '../SmartImage'
@@ -21,7 +21,7 @@ export function Header({ business }: { business: Business }) {
     <header className="sticky top-0 z-30 bg-[var(--color-background)]/95 backdrop-blur border-b border-[var(--color-border)]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <Link to={publicRoutes.home(business.slug)} className="flex items-center gap-2.5 shrink-0">
-          <SmartImage asset={business.logo} alt={business.name} className="h-10 w-10 rounded-full object-cover" fallbackClassName="h-10 w-10 rounded-full" />
+          <SmartImage asset={business.logo} alt={business.name} className="h-10 w-10 rounded-full object-cover" fallbackClassName="h-10 w-10 rounded-full" icon={Building2} iconSize={18} />
           <span className="font-heading font-semibold text-lg leading-tight">{business.displayName}</span>
         </Link>
 

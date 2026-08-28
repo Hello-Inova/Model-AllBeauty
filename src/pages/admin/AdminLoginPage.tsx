@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
-import { LogIn } from 'lucide-react'
+import { LogIn, Building2 } from 'lucide-react'
 import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessContext'
 import { useAuth, DEMO_ADMIN_PASSWORD } from '../../contexts/AuthContext'
 import { Button, Field, Input } from '../../components/Form'
@@ -45,7 +45,7 @@ function AdminLoginInner() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--color-muted)]">
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-7 flex flex-col gap-4">
         <div className="flex flex-col items-center gap-2 mb-2">
-          <SmartImage asset={business.logo} alt={business.name} className="h-14 w-14 rounded-full object-cover" fallbackClassName="h-14 w-14 rounded-full" />
+          <SmartImage asset={business.logo} alt={business.name} className="h-14 w-14 rounded-full object-cover" fallbackClassName="h-14 w-14 rounded-full" icon={Building2} iconSize={26} />
           <h1 className="font-heading text-lg font-semibold">{business.displayName}</h1>
           <p className="text-xs text-[var(--color-muted-foreground)]">Painel administrativo</p>
         </div>

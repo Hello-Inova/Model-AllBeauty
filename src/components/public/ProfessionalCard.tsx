@@ -1,3 +1,4 @@
+import { UserRound } from 'lucide-react'
 import type { Professional } from '../../types'
 import { SmartImage } from '../SmartImage'
 
@@ -9,6 +10,8 @@ export function ProfessionalCard({ professional }: { professional: Professional 
         alt={professional.name}
         className="h-28 w-28 rounded-full object-cover mb-3"
         fallbackClassName="h-28 w-28 rounded-full mb-3"
+        icon={UserRound}
+        iconSize={40}
       />
       <h3 className="font-heading font-semibold">{professional.name}</h3>
       <p className="text-sm text-[var(--color-muted-foreground)] mt-1 line-clamp-3">{professional.description}</p>

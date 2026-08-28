@@ -5,6 +5,7 @@ import { useCategories, useProfessionals, useServices } from '../../hooks/useEnt
 import { SmartImage } from '../../components/SmartImage'
 import { Button } from '../../components/Form'
 import { formatCurrency, formatDuration } from '../../utils/format'
+import { getCategoryIcon } from '../../utils/categoryIcons'
 import { publicRoutes } from '../../utils/routes'
 import { ProfessionalCard } from '../../components/public/ProfessionalCard'
 import { SEO } from '../../components/SEO'
@@ -35,7 +36,7 @@ export function ServiceDetailPage() {
 
       <div className="grid md:grid-cols-2 gap-8">
         <div className="rounded-xl overflow-hidden aspect-[4/3]">
-          <SmartImage asset={service.image} alt={service.name} className="w-full h-full object-cover" />
+          <SmartImage asset={service.image} alt={service.name} className="w-full h-full object-cover" icon={getCategoryIcon(category?.slug)} iconSize={48} />
         </div>
 
         <div className="flex flex-col">

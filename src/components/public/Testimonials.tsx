@@ -1,4 +1,4 @@
-import { Star } from 'lucide-react'
+import { Star, UserRound } from 'lucide-react'
 import type { Testimonial } from '../../types'
 import { SmartImage } from '../SmartImage'
 
@@ -15,7 +15,7 @@ export function Testimonials({ testimonials }: { testimonials: Testimonial[] }) 
           </div>
           <blockquote className="text-sm text-[var(--color-foreground)] flex-1">“{t.text}”</blockquote>
           <figcaption className="flex items-center gap-2.5">
-            <SmartImage asset={t.photo} alt={t.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" />
+            <SmartImage asset={t.photo} alt={t.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" icon={UserRound} iconSize={18} />
             <div className="leading-tight">
               <div className="text-sm font-medium">{t.name}</div>
               {t.demo && <div className="text-[10px] text-[var(--color-muted-foreground)]">Depoimento demonstrativo</div>}

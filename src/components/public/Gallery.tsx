@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Camera } from 'lucide-react'
 import type { GalleryImage } from '../../types'
 import { SmartImage } from '../SmartImage'
 import { useResolvedImage } from '../../hooks/useImage'
@@ -13,7 +13,12 @@ export function Gallery({ images }: { images: GalleryImage[] }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {images.map((g, i) => (
           <button key={g.id} onClick={() => setOpenIndex(i)} className="aspect-square rounded-lg overflow-hidden group">
-            <SmartImage asset={g.image} alt={g.title || 'Foto da galeria'} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+            <SmartImage
+              asset={g.image}
+              alt={g.title || 'Foto da galeria'}
+              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+              icon={Camera}
+            />
           </button>
         ))}
       </div>

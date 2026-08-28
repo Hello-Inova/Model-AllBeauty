@@ -13,6 +13,7 @@ import { SmartImage } from '../../components/SmartImage'
 import { useToast } from '../../contexts/ToastContext'
 import { slugify } from '../../utils/slug'
 import { formatCurrency, formatDuration } from '../../utils/format'
+import { getCategoryIcon } from '../../utils/categoryIcons'
 
 interface FormState {
   name: string
@@ -147,7 +148,14 @@ export function ServicesAdminPage() {
                 <tr key={s.id}>
                   <Td>
                     <div className="flex items-center gap-2.5">
-                      <SmartImage asset={s.image} alt={s.name} className="h-9 w-9 rounded-md object-cover" fallbackClassName="h-9 w-9 rounded-md" />
+                      <SmartImage
+                        asset={s.image}
+                        alt={s.name}
+                        className="h-9 w-9 rounded-md object-cover"
+                        fallbackClassName="h-9 w-9 rounded-md"
+                        icon={getCategoryIcon(categories.find((c) => c.id === s.categoryId)?.slug)}
+                        iconSize={16}
+                      />
                       <span className="font-medium flex items-center gap-1">{s.name} {s.featured && <Star size={12} className="text-[var(--color-accent)]" fill="currentColor" />}</span>
                     </div>
                   </Td>

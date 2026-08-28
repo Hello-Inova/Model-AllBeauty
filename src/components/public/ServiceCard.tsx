@@ -4,6 +4,7 @@ import type { Business, Category, Service } from '../../types'
 import { SmartImage } from '../SmartImage'
 import { formatCurrency, formatDuration } from '../../utils/format'
 import { publicRoutes } from '../../utils/routes'
+import { getCategoryIcon } from '../../utils/categoryIcons'
 
 export function ServiceCard({ business, service, category }: { business: Business; service: Service; category?: Category }) {
   const hasPromo = service.promotionalPrice != null && service.promotionalPrice < service.price
@@ -13,7 +14,13 @@ export function ServiceCard({ business, service, category }: { business: Busines
       className="group flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
     >
       <div className="relative aspect-[4/3]">
-        <SmartImage asset={service.image} alt={service.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+        <SmartImage
+          asset={service.image}
+          alt={service.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+          icon={getCategoryIcon(category?.slug)}
+          iconSize={36}
+        />
         {service.featured && (
           <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-[var(--color-accent)] text-white text-xs font-semibold px-2.5 py-1 rounded-full">
             <Star size={11} fill="currentColor" /> Destaque

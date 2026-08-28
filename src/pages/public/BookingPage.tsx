@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Check, ChevronLeft, Users2 } from 'lucide-react'
+import { Check, ChevronLeft, Users2, UserRound } from 'lucide-react'
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
 import { useAppointments, useBlockedDates, useCategories, useProfessionals, useServices } from '../../hooks/useEntities'
 import type { Appointment, Professional, Service } from '../../types'
@@ -15,6 +15,7 @@ import { Button, Field, Input, TextArea } from '../../components/Form'
 import { SEO } from '../../components/SEO'
 import { BookingConfirmation } from '../../components/public/BookingConfirmation'
 import { useToast } from '../../contexts/ToastContext'
+import { getCategoryIcon } from '../../utils/categoryIcons'
 
 type Step = 'service' | 'professional' | 'datetime' | 'details' | 'review'
 
@@ -221,7 +222,14 @@ export function BookingPage() {
                     serviceId === s.id ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
                   }`}
                 >
-                  <SmartImage asset={s.image} alt={s.name} className="h-16 w-16 rounded-md object-cover shrink-0" fallbackClassName="h-16 w-16 rounded-md shrink-0" />
+                  <SmartImage
+                    asset={s.image}
+                    alt={s.name}
+                    className="h-16 w-16 rounded-md object-cover shrink-0"
+                    fallbackClassName="h-16 w-16 rounded-md shrink-0"
+                    icon={getCategoryIcon(categories.find((c) => c.id === s.categoryId)?.slug)}
+                    iconSize={22}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{s.name}</p>
                     <p className="text-xs text-[var(--color-muted-foreground)] truncate">{categories.find((c) => c.id === s.categoryId)?.name}</p>
@@ -258,7 +266,7 @@ export function BookingPage() {
                   professionalId === p.id ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
                 }`}
               >
-                <SmartImage asset={p.photo} alt={p.name} className="h-12 w-12 rounded-full object-cover shrink-0" fallbackClassName="h-12 w-12 rounded-full shrink-0" />
+                <SmartImage asset={p.photo} alt={p.name} className="h-12 w-12 rounded-full object-cover shrink-0" fallbackClassName="h-12 w-12 rounded-full shrink-0" icon={UserRound} iconSize={18} />
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{p.name}</p>
                   <p className="text-xs text-[var(--color-muted-foreground)] truncate">{p.specialties.join(', ')}</p>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, UserSquare2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserSquare2, UserRound } from 'lucide-react'
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
 import { useProfessionals, useServices } from '../../hooks/useEntities'
 import { dataRepository, imageStorage } from '../../repositories'
@@ -135,7 +135,7 @@ export function ProfessionalsAdminPage() {
                 <tr key={p.id}>
                   <Td>
                     <div className="flex items-center gap-2.5">
-                      <SmartImage asset={p.photo} alt={p.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" />
+                      <SmartImage asset={p.photo} alt={p.name} className="h-9 w-9 rounded-full object-cover" fallbackClassName="h-9 w-9 rounded-full" icon={UserRound} iconSize={16} />
                       <span className="font-medium">{p.name}</span>
                     </div>
                   </Td>
