@@ -1,5 +1,5 @@
 import { Mail, MapPin, Phone } from 'lucide-react'
-import { InstagramIcon, FacebookIcon, TikTokIcon } from '../BrandIcons'
+import { InstagramIcon, FacebookIcon, TikTokIcon, WhatsAppIcon } from '../BrandIcons'
 import type { Business } from '../../types'
 import { businessWhatsappLink } from '../../utils/whatsapp'
 
@@ -25,8 +25,8 @@ export function ContactSection({ business }: { business: Business }) {
           </div>
         ))}
         <div className="flex gap-3 pt-2">
-          <a href={businessWhatsappLink(business)} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#25D366] text-white p-2.5">
-            <Phone size={16} />
+          <a href={businessWhatsappLink(business)} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="rounded-full bg-[#25D366] text-white p-2.5">
+            <WhatsAppIcon size={16} />
           </a>
           {business.instagram && (
             <a href={business.instagram} target="_blank" rel="noopener noreferrer" className="rounded-full bg-[var(--color-muted)] p-2.5 text-[var(--color-primary)]">

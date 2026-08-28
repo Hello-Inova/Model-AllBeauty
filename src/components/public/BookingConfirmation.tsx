@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
-import { CheckCircle2, CalendarPlus, MessageCircle, Home } from 'lucide-react'
+import { CheckCircle2, CalendarPlus, Home } from 'lucide-react'
 import type { Appointment, Business, Professional, Service } from '../../types'
 import { formatCurrency, formatDateLong, timeToMinutes } from '../../utils/format'
 import { publicRoutes } from '../../utils/routes'
 import { appointmentConfirmationMessage, whatsappLink } from '../../utils/whatsapp'
 import { Button } from '../Form'
+import { WhatsAppIcon } from '../BrandIcons'
 
 function icsDate(date: string, time: string): string {
   const [y, m, d] = date.split('-').map(Number)
@@ -76,7 +77,7 @@ export function BookingConfirmation({
           <Button variant="outline" className="w-full" icon={<CalendarPlus size={16} />}>Adicionar ao calendário</Button>
         </a>
         <a href={whatsappLink(business.whatsapp, message)} target="_blank" rel="noopener noreferrer" className="flex-1">
-          <Button className="w-full !bg-[#25D366] !text-white" icon={<MessageCircle size={16} />}>Falar pelo WhatsApp</Button>
+          <Button className="w-full !bg-[#25D366] !text-white" icon={<WhatsAppIcon size={16} />}>Falar pelo WhatsApp</Button>
         </a>
       </div>
       <Link to={publicRoutes.home(business.slug)} className="mt-1">

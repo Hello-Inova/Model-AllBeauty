@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ensureSeedData } from './repositories'
 import { FullPageLoader } from './components/StateScreens'
 import { NotFoundPage } from './components/StateScreens'
+import { ScrollToTop } from './components/ScrollToTop'
 
 import { RootRedirect } from './pages/RootRedirect'
 import { PublicBusinessGate } from './pages/public/PublicBusinessGate'
@@ -47,6 +48,7 @@ export default function AppRouter() {
 
   return (
     <HashRouter>
+      <ScrollToTop />
       <ToastProvider>
         <AuthProvider>
           <Routes>

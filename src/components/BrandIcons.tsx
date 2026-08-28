@@ -46,3 +46,16 @@ export function YoutubeIcon(props: IconProps) {
     </svg>
   )
 }
+
+// WhatsApp is used exclusively on solid brand-green surfaces (floating
+// button, confirmation CTA), so — unlike the stroke-style icons above,
+// meant to sit inline with lucide icons — it's rendered filled/solid like
+// the real wordless glyph, for instant recognizability on that green pill.
+export function WhatsAppIcon(props: IconProps) {
+  const { size = 18, ...rest } = props
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none" {...rest}>
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.85.5 3.62 1.44 5.19L2 22l5.06-1.55c1.44.8 3.06 1.22 4.98 1.22 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.61 14.02c-.24.66-1.19 1.22-1.65 1.29-.42.06-.96.09-1.55-.1-.36-.11-.82-.27-1.4-.53-2.47-1.07-4.08-3.56-4.2-3.72-.12-.16-1-1.33-1-2.54s.63-1.8.86-2.05c.22-.24.49-.3.65-.3l.47.01c.15.01.35-.06.55.42.2.5.7 1.71.76 1.83.06.13.1.27.02.43-.08.16-.12.27-.24.41l-.37.43c-.12.13-.25.26-.11.5.14.24.63 1.04 1.36 1.68.93.83 1.72 1.09 1.96 1.21.24.13.38.11.53-.06.15-.16.61-.71.77-.95.16-.24.32-.2.55-.12.23.08 1.43.67 1.68.79.25.13.41.19.47.29.06.11.06.6-.14 1.26z" />
+    </svg>
+  )
+}
