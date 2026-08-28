@@ -39,11 +39,12 @@ interface FieldProps {
   error?: string
   hint?: string
   required?: boolean
+  className?: string
   children: ReactNode
 }
-export function Field({ label, htmlFor, error, hint, required, children }: FieldProps) {
+export function Field({ label, htmlFor, error, hint, required, className = '', children }: FieldProps) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${className}`}>
       {label && (
         <label htmlFor={htmlFor} className="text-sm font-medium text-[var(--color-foreground)]">
           {label} {required && <span className="text-red-500">*</span>}

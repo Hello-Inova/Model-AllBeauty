@@ -110,12 +110,12 @@ export function ImageUploader({ label, value, onChange, aspect = 'aspect-video',
         )}
       </div>
 
-      <div className="flex rounded-lg border border-[var(--color-border)] overflow-hidden w-fit text-xs">
-        <button type="button" onClick={() => setMode('url')} className={`px-3 py-1.5 flex items-center gap-1 ${mode === 'url' ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-transparent'}`}>
-          <Link2 size={13} /> URL da imagem
+      <div className="flex w-full rounded-lg border border-[var(--color-border)] overflow-hidden text-xs">
+        <button type="button" onClick={() => setMode('url')} className={`flex-1 min-w-0 px-2 py-1.5 flex items-center justify-center gap-1 text-center ${mode === 'url' ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-transparent'}`}>
+          <Link2 size={13} className="shrink-0" /> <span className="truncate">URL da imagem</span>
         </button>
-        <button type="button" onClick={() => setMode('upload')} className={`px-3 py-1.5 flex items-center gap-1 border-l border-[var(--color-border)] ${mode === 'upload' ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-transparent'}`}>
-          <Upload size={13} /> Anexar imagem
+        <button type="button" onClick={() => setMode('upload')} className={`flex-1 min-w-0 px-2 py-1.5 flex items-center justify-center gap-1 text-center border-l border-[var(--color-border)] ${mode === 'upload' ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-transparent'}`}>
+          <Upload size={13} className="shrink-0" /> <span className="truncate">Anexar imagem</span>
         </button>
       </div>
 

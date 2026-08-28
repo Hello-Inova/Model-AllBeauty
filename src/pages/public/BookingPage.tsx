@@ -231,11 +231,11 @@ export function BookingPage() {
                     iconSize={22}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{s.name}</p>
+                    <p className="font-medium text-sm line-clamp-2">{s.name}</p>
                     <p className="text-xs text-[var(--color-muted-foreground)] truncate">{categories.find((c) => c.id === s.categoryId)?.name}</p>
                     <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">{formatDuration(s.duration)}</p>
                   </div>
-                  <span className="font-semibold text-[var(--color-primary)] text-sm shrink-0">{formatCurrency(s.promotionalPrice ?? s.price)}</span>
+                  <span className="font-semibold text-[var(--color-primary)] text-sm shrink-0 text-right">{formatCurrency(s.promotionalPrice ?? s.price)}</span>
                 </button>
               ))}
           </div>

@@ -84,7 +84,7 @@ export function SettingsAdminPage() {
                 <ColorField label="Cor de destaque" value={form.accentColor} onChange={(v) => set('accentColor', v)} />
                 <ColorField label="Cor de fundo" value={form.backgroundColor} onChange={(v) => set('backgroundColor', v)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <ImageUploader label="Logo" aspect="aspect-square" value={form.logo} onChange={(img) => set('logo', img as ImageAsset)} />
                 <ImageUploader label="Favicon" aspect="aspect-square" value={form.favicon} onChange={(img) => set('favicon', img as ImageAsset)} />
               </div>
@@ -113,8 +113,8 @@ export function SettingsAdminPage() {
             </div>
           </SectionCard>
           <SectionCard title="Endereço">
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Endereço" hint="Rua, número e bairro"><Input value={form.address} onChange={(e) => set('address', e.target.value)} /></Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Endereço" hint="Rua, número e bairro" className="sm:col-span-2"><Input value={form.address} onChange={(e) => set('address', e.target.value)} /></Field>
               <Field label="CEP"><Input value={form.zipCode} onChange={(e) => set('zipCode', e.target.value)} /></Field>
               <Field label="Cidade"><Input value={form.city} onChange={(e) => set('city', e.target.value)} /></Field>
               <Field label="Estado"><Input value={form.state} onChange={(e) => set('state', e.target.value)} /></Field>

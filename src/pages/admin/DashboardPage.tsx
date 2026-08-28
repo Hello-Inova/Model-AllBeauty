@@ -49,7 +49,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+        <div className="lg:col-span-2 min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-heading font-semibold">Agenda de hoje</h2>
             <Link to={adminRoutes.agenda(business.slug)} className="text-sm text-[var(--color-primary)] flex items-center gap-1">
