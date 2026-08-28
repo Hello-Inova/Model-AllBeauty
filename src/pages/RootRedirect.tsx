@@ -10,10 +10,18 @@ export function RootRedirect() {
   const [slug, setSlug] = useState<string | null>(null)
 
   useEffect(() => {
-    dataRepository.getBusinesses().then((list) => {
-      const demo = list.find((b) => b.slug === DEFAULT_BUSINESS_SLUG) ?? list[0]
-      setSlug(demo ? demo.slug : DEFAULT_BUSINESS_SLUG)
-    })
+    // Public visitors are never authenticated here, so this must only ever
+    // call the public "business by slug" lookup — never the admin-only
+    // "list all businesses" endpoint (which 401s for anonymous visitors and
+    // used to leave this page stuck on the loader forever).
+    dataRepository
+      .getBusinessBySlug(DEFAULT_BUSINESS_SLUG)
+      .then((business) => {
+        setSlug(business ? business.slug : DEFAULT_BUSINESS_SLUG)
+      })
+      .catch(() => {
+        setSlug(DEFAULT_BUSINESS_SLUG)
+      })
   }, [])
 
   if (!slug) return <FullPageLoader />
