@@ -19,8 +19,21 @@ function readBody(req: VercelRequest): any {
   return req.body
 }
 
+function getAction(req: VercelRequest): string | undefined {
+  // Same rationale as api/data/[...path].ts: don't rely solely on
+  // req.query.action being populated by the platform for catch-all routes —
+  // parse it from the URL as a guaranteed-correct fallback.
+  const fromQuery = ([] as string[]).concat((req.query.action as string | string[]) ?? [])
+  if (fromQuery.length > 0) return fromQuery[0]
+  const pathname = (req.url ?? '').split('?')[0]
+  const parts = pathname.split('/').filter(Boolean)
+  const idx = parts.indexOf('auth')
+  if (idx === -1) return undefined
+  return decodeURIComponent(parts[idx + 1] ?? '')
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const action = ([] as string[]).concat((req.query.action as string | string[]) ?? [])[0]
+  const action = getAction(req)
   try {
     if (action === 'login-admin' && req.method === 'POST') return await loginAdmin(req, res)
     if (action === 'login-super' && req.method === 'POST') return await loginSuper(req, res)

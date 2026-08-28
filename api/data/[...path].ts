@@ -29,8 +29,18 @@ function readBody(req: VercelRequest): any {
 }
 
 function segments(req: VercelRequest): string[] {
-  const raw = req.query.path
-  return ([] as string[]).concat((raw as string | string[]) ?? [])
+  // req.query.path (the [...path] catch-all param) is not reliably populated
+  // by the Vercel Node.js runtime in every deployment configuration, so parse
+  // the route segments directly from the request URL instead — this works
+  // regardless of how (or whether) the platform fills in req.query for
+  // catch-all API routes.
+  const fromQuery = ([] as string[]).concat((req.query.path as string | string[]) ?? [])
+  if (fromQuery.length > 0) return fromQuery
+  const pathname = (req.url ?? '').split('?')[0]
+  const parts = pathname.split('/').filter(Boolean)
+  const idx = parts.indexOf('data')
+  if (idx === -1) return []
+  return parts.slice(idx + 1).map((p) => decodeURIComponent(p))
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
