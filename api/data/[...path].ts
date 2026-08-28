@@ -11,9 +11,19 @@ import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
 // panel and the public storefront read or write), so the deployment only
-// ever needs a handful of Vercel Functions regardless of plan limits. Routes
-// are dispatched by path segments below /api/data/, mirroring the shape of
-// src/repositories/DataRepository.ts one-to-one.
+// ever needs a handful of Vercel Functions regardless of plan limits.
+//
+// Routing note: only the FIRST path segment below /api/data/ (the resource
+// name, e.g. "businesses") is used for dispatch — this deployment's Vercel
+// Node.js runtime does not reliably route requests with a second or third
+// path segment through this catch-all function (confirmed empirically:
+// /api/data/businesses reaches this file, /api/data/businesses/xyz does
+// not, even though both should match a [...path].ts catch-all). To sidestep
+// that, every record id, slug, or sub-action is passed as a query string
+// parameter (?id=, ?slug=, ?action=) instead of an extra path segment —
+// query strings are parsed independently of that routing layer and work
+// reliably. See src/repositories/providers/ApiProvider.ts for the matching
+// client-side URL construction.
 // ---------------------------------------------------------------------------
 
 function readBody(req: VercelRequest): any {
@@ -28,37 +38,39 @@ function readBody(req: VercelRequest): any {
   return req.body
 }
 
-function segments(req: VercelRequest): string[] {
+function resourceOf(req: VercelRequest): string | undefined {
   // req.query.path (the [...path] catch-all param) is not reliably populated
   // by the Vercel Node.js runtime in every deployment configuration, so parse
-  // the route segments directly from the request URL instead — this works
-  // regardless of how (or whether) the platform fills in req.query for
-  // catch-all API routes.
+  // it directly from the request URL instead.
   const fromQuery = ([] as string[]).concat((req.query.path as string | string[]) ?? [])
-  if (fromQuery.length > 0) return fromQuery
+  if (fromQuery.length > 0) return fromQuery[0]
   const pathname = (req.url ?? '').split('?')[0]
   const parts = pathname.split('/').filter(Boolean)
   const idx = parts.indexOf('data')
-  if (idx === -1) return []
-  return parts.slice(idx + 1).map((p) => decodeURIComponent(p))
+  if (idx === -1 || idx + 1 >= parts.length) return undefined
+  return decodeURIComponent(parts[idx + 1])
+}
+
+function strParam(req: VercelRequest, key: string): string | undefined {
+  const v = req.query[key]
+  if (v === undefined) return undefined
+  return String(Array.isArray(v) ? v[0] : v)
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const path = segments(req)
-    const resource = path[0]
-    const rest = path.slice(1)
+    const resource = resourceOf(req)
 
-    if (resource === 'businesses') return await businesses(req, res, rest)
-    if (resource === 'categories') return await categories(req, res, rest)
-    if (resource === 'services') return await services(req, res, rest)
-    if (resource === 'professionals') return await professionals(req, res, rest)
-    if (resource === 'customers') return await customers(req, res, rest)
-    if (resource === 'appointments') return await appointments(req, res, rest)
-    if (resource === 'blocked-dates') return await blockedDates(req, res, rest)
-    if (resource === 'gallery') return await gallery(req, res, rest)
-    if (resource === 'testimonials') return await testimonials(req, res, rest)
-    if (resource === 'banners') return await banners(req, res, rest)
+    if (resource === 'businesses') return await businesses(req, res)
+    if (resource === 'categories') return await categories(req, res)
+    if (resource === 'services') return await services(req, res)
+    if (resource === 'professionals') return await professionals(req, res)
+    if (resource === 'customers') return await customers(req, res)
+    if (resource === 'appointments') return await appointments(req, res)
+    if (resource === 'blocked-dates') return await blockedDates(req, res)
+    if (resource === 'gallery') return await gallery(req, res)
+    if (resource === 'testimonials') return await testimonials(req, res)
+    if (resource === 'banners') return await banners(req, res)
 
     res.status(404).json({ error: 'Recurso não encontrado.' })
   } catch (e) {
@@ -69,127 +81,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 }
 
 // ---- Businesses -------------------------------------------------------------
-async function businesses(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function businesses(req: VercelRequest, res: VercelResponse) {
   const method = req.method
+  const id = strParam(req, 'id')
+  const slug = strParam(req, 'slug')
+  const action = strParam(req, 'action')
 
-  if (rest.length === 0) {
-    if (method === 'GET') {
-      const session = await requireSession(req)
-      requireSuperAdmin(session)
-      const { rows } = await sql`SELECT * FROM businesses ORDER BY created_at DESC`
-      return res.status(200).json(rows.map(rowToBusiness))
-    }
-    if (method === 'POST') {
-      const session = await requireSession(req)
-      requireSuperAdmin(session)
-      const body = readBody(req)
-      const { adminEmail, adminPassword } = body
-      if (!adminEmail || !adminPassword || String(adminPassword).length < 6) {
-        throw new ApiError(400, 'Informe um e-mail e uma senha (mínimo 6 caracteres) para o login da nova empresa.')
-      }
-      const id = makeId('biz')
-      const row = businessToRow(body.business ?? body)
-      await sql`
-        INSERT INTO businesses (
-          id, slug, name, display_name, description, segment, logo, favicon, cover_image, hero_image,
-          phone, whatsapp, email, instagram, facebook, tiktok, youtube, website,
-          address, city, state, country, zip_code, currency, timezone,
-          primary_color, secondary_color, accent_color, background_color, foreground_color, theme,
-          active, demo, plan, working_hours, booking_policies
-        ) VALUES (
-          ${id}, ${row.slug}, ${row.name}, ${row.display_name}, ${row.description}, ${row.segment},
-          ${JSON.stringify(row.logo)}, ${JSON.stringify(row.favicon)}, ${JSON.stringify(row.cover_image)}, ${JSON.stringify(row.hero_image)},
-          ${row.phone}, ${row.whatsapp}, ${row.email}, ${row.instagram}, ${row.facebook}, ${row.tiktok}, ${row.youtube}, ${row.website},
-          ${row.address}, ${row.city}, ${row.state}, ${row.country}, ${row.zip_code}, ${row.currency}, ${row.timezone},
-          ${row.primary_color}, ${row.secondary_color}, ${row.accent_color}, ${row.background_color}, ${row.foreground_color}, ${row.theme},
-          ${row.active}, ${row.demo}, ${row.plan}, ${row.working_hours}, ${row.booking_policies}
-        )
-      `
-      const passwordHash = await hashPassword(adminPassword)
-      await sql`
-        INSERT INTO admin_users (id, business_id, name, email, password_hash, role, active)
-        VALUES (${makeId('adm')}, ${id}, ${row.name}, ${adminEmail}, ${passwordHash}, 'owner', true)
-      `
-      const created = await sql`SELECT * FROM businesses WHERE id = ${id}`
-      return res.status(201).json(rowToBusiness(created.rows[0]))
-    }
-  }
-
-  if (rest[0] === 'slug' && rest.length === 2) {
-    const { rows } = await sql`SELECT * FROM businesses WHERE slug = ${rest[1]} LIMIT 1`
+  if (slug !== undefined) {
+    const { rows } = await sql`SELECT * FROM businesses WHERE slug = ${slug} LIMIT 1`
     if (rows.length === 0) return res.status(200).json(null)
     return res.status(200).json(rowToBusiness(rows[0]))
   }
 
-  if (rest.length === 1 && rest[0] !== 'import-backup') {
-    const id = rest[0]
-    const session = await requireSession(req)
-    requireBusinessAccess(session, id)
-    if (method === 'GET') {
-      const { rows } = await sql`SELECT * FROM businesses WHERE id = ${id}`
-      if (rows.length === 0) notFound('Empresa')
-      return res.status(200).json(rowToBusiness(rows[0]))
-    }
-    if (method === 'PATCH') {
-      const existing = await sql`SELECT * FROM businesses WHERE id = ${id}`
-      if (existing.rows.length === 0) notFound('Empresa')
-      const merged = { ...rowToBusiness(existing.rows[0]), ...readBody(req) }
-      const row = businessToRow(merged)
-      await sql`
-        UPDATE businesses SET
-          slug = ${row.slug}, name = ${row.name}, display_name = ${row.display_name}, description = ${row.description}, segment = ${row.segment},
-          logo = ${JSON.stringify(row.logo)}, favicon = ${JSON.stringify(row.favicon)}, cover_image = ${JSON.stringify(row.cover_image)}, hero_image = ${JSON.stringify(row.hero_image)},
-          phone = ${row.phone}, whatsapp = ${row.whatsapp}, email = ${row.email}, instagram = ${row.instagram}, facebook = ${row.facebook}, tiktok = ${row.tiktok}, youtube = ${row.youtube}, website = ${row.website},
-          address = ${row.address}, city = ${row.city}, state = ${row.state}, country = ${row.country}, zip_code = ${row.zip_code}, currency = ${row.currency}, timezone = ${row.timezone},
-          primary_color = ${row.primary_color}, secondary_color = ${row.secondary_color}, accent_color = ${row.accent_color}, background_color = ${row.background_color}, foreground_color = ${row.foreground_color}, theme = ${row.theme},
-          active = ${row.active}, demo = ${row.demo}, plan = ${row.plan}, working_hours = ${row.working_hours}, booking_policies = ${row.booking_policies},
-          updated_at = now()
-        WHERE id = ${id}
-      `
-      const updated = await sql`SELECT * FROM businesses WHERE id = ${id}`
-      return res.status(200).json(rowToBusiness(updated.rows[0]))
-    }
-    if (method === 'DELETE') {
-      requireSuperAdmin(session)
-      await sql`DELETE FROM businesses WHERE id = ${id}`
-      return res.status(204).end()
-    }
-  }
-
-  if (rest.length === 2 && rest[1] === 'backup' && method === 'GET') {
-    const id = rest[0]
-    const session = await requireSession(req)
-    requireBusinessAccess(session, id)
-    const biz = await sql`SELECT * FROM businesses WHERE id = ${id}`
-    if (biz.rows.length === 0) notFound('Empresa')
-    const [cat, srv, pro, cus, apt, gal, tst, ban, blk] = await Promise.all([
-      sql`SELECT * FROM categories WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM services WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM professionals WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM customers WHERE business_id = ${id}`,
-      sql`SELECT * FROM appointments WHERE business_id = ${id}`,
-      sql`SELECT * FROM gallery_images WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM testimonials WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM banners WHERE business_id = ${id} ORDER BY "order"`,
-      sql`SELECT * FROM blocked_dates WHERE business_id = ${id}`,
-    ])
-    return res.status(200).json({
-      business: rowToBusiness(biz.rows[0]),
-      categories: cat.rows.map(rowToCategory),
-      services: srv.rows.map(rowToService),
-      professionals: pro.rows.map(rowToProfessional),
-      customers: cus.rows.map(rowToCustomer),
-      appointments: apt.rows.map(rowToAppointment),
-      gallery: gal.rows.map(rowToGalleryImage),
-      testimonials: tst.rows.map(rowToTestimonial),
-      banners: ban.rows.map(rowToBanner),
-      blockedDates: blk.rows.map(rowToBlockedDate),
-      exportedAt: new Date().toISOString(),
-      version: 1,
-    })
-  }
-
-  if (rest.length === 1 && rest[0] === 'import-backup' && method === 'POST') {
+  if (action === 'import-backup' && method === 'POST') {
     const backup = readBody(req)
     if (!backup?.business?.id) throw new ApiError(400, 'Arquivo de backup inválido.')
     const session = await requireSession(req)
@@ -274,6 +178,114 @@ async function businesses(req: VercelRequest, res: VercelResponse, rest: string[
     return res.status(200).json(rowToBusiness(updated.rows[0]))
   }
 
+  if (id === undefined) {
+    if (method === 'GET') {
+      const session = await requireSession(req)
+      requireSuperAdmin(session)
+      const { rows } = await sql`SELECT * FROM businesses ORDER BY created_at DESC`
+      return res.status(200).json(rows.map(rowToBusiness))
+    }
+    if (method === 'POST') {
+      const session = await requireSession(req)
+      requireSuperAdmin(session)
+      const body = readBody(req)
+      const { adminEmail, adminPassword } = body
+      if (!adminEmail || !adminPassword || String(adminPassword).length < 6) {
+        throw new ApiError(400, 'Informe um e-mail e uma senha (mínimo 6 caracteres) para o login da nova empresa.')
+      }
+      const newId = makeId('biz')
+      const row = businessToRow(body.business ?? body)
+      await sql`
+        INSERT INTO businesses (
+          id, slug, name, display_name, description, segment, logo, favicon, cover_image, hero_image,
+          phone, whatsapp, email, instagram, facebook, tiktok, youtube, website,
+          address, city, state, country, zip_code, currency, timezone,
+          primary_color, secondary_color, accent_color, background_color, foreground_color, theme,
+          active, demo, plan, working_hours, booking_policies
+        ) VALUES (
+          ${newId}, ${row.slug}, ${row.name}, ${row.display_name}, ${row.description}, ${row.segment},
+          ${JSON.stringify(row.logo)}, ${JSON.stringify(row.favicon)}, ${JSON.stringify(row.cover_image)}, ${JSON.stringify(row.hero_image)},
+          ${row.phone}, ${row.whatsapp}, ${row.email}, ${row.instagram}, ${row.facebook}, ${row.tiktok}, ${row.youtube}, ${row.website},
+          ${row.address}, ${row.city}, ${row.state}, ${row.country}, ${row.zip_code}, ${row.currency}, ${row.timezone},
+          ${row.primary_color}, ${row.secondary_color}, ${row.accent_color}, ${row.background_color}, ${row.foreground_color}, ${row.theme},
+          ${row.active}, ${row.demo}, ${row.plan}, ${row.working_hours}, ${row.booking_policies}
+        )
+      `
+      const passwordHash = await hashPassword(adminPassword)
+      await sql`
+        INSERT INTO admin_users (id, business_id, name, email, password_hash, role, active)
+        VALUES (${makeId('adm')}, ${newId}, ${row.name}, ${adminEmail}, ${passwordHash}, 'owner', true)
+      `
+      const created = await sql`SELECT * FROM businesses WHERE id = ${newId}`
+      return res.status(201).json(rowToBusiness(created.rows[0]))
+    }
+    return res.status(404).json({ error: 'Rota de empresas não encontrada.' })
+  }
+
+  if (action === 'backup' && method === 'GET') {
+    const session = await requireSession(req)
+    requireBusinessAccess(session, id)
+    const biz = await sql`SELECT * FROM businesses WHERE id = ${id}`
+    if (biz.rows.length === 0) notFound('Empresa')
+    const [cat, srv, pro, cus, apt, gal, tst, ban, blk] = await Promise.all([
+      sql`SELECT * FROM categories WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM services WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM professionals WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM customers WHERE business_id = ${id}`,
+      sql`SELECT * FROM appointments WHERE business_id = ${id}`,
+      sql`SELECT * FROM gallery_images WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM testimonials WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM banners WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM blocked_dates WHERE business_id = ${id}`,
+    ])
+    return res.status(200).json({
+      business: rowToBusiness(biz.rows[0]),
+      categories: cat.rows.map(rowToCategory),
+      services: srv.rows.map(rowToService),
+      professionals: pro.rows.map(rowToProfessional),
+      customers: cus.rows.map(rowToCustomer),
+      appointments: apt.rows.map(rowToAppointment),
+      gallery: gal.rows.map(rowToGalleryImage),
+      testimonials: tst.rows.map(rowToTestimonial),
+      banners: ban.rows.map(rowToBanner),
+      blockedDates: blk.rows.map(rowToBlockedDate),
+      exportedAt: new Date().toISOString(),
+      version: 1,
+    })
+  }
+
+  const session = await requireSession(req)
+  requireBusinessAccess(session, id)
+  if (method === 'GET') {
+    const { rows } = await sql`SELECT * FROM businesses WHERE id = ${id}`
+    if (rows.length === 0) notFound('Empresa')
+    return res.status(200).json(rowToBusiness(rows[0]))
+  }
+  if (method === 'PATCH') {
+    const existing = await sql`SELECT * FROM businesses WHERE id = ${id}`
+    if (existing.rows.length === 0) notFound('Empresa')
+    const merged = { ...rowToBusiness(existing.rows[0]), ...readBody(req) }
+    const row = businessToRow(merged)
+    await sql`
+      UPDATE businesses SET
+        slug = ${row.slug}, name = ${row.name}, display_name = ${row.display_name}, description = ${row.description}, segment = ${row.segment},
+        logo = ${JSON.stringify(row.logo)}, favicon = ${JSON.stringify(row.favicon)}, cover_image = ${JSON.stringify(row.cover_image)}, hero_image = ${JSON.stringify(row.hero_image)},
+        phone = ${row.phone}, whatsapp = ${row.whatsapp}, email = ${row.email}, instagram = ${row.instagram}, facebook = ${row.facebook}, tiktok = ${row.tiktok}, youtube = ${row.youtube}, website = ${row.website},
+        address = ${row.address}, city = ${row.city}, state = ${row.state}, country = ${row.country}, zip_code = ${row.zip_code}, currency = ${row.currency}, timezone = ${row.timezone},
+        primary_color = ${row.primary_color}, secondary_color = ${row.secondary_color}, accent_color = ${row.accent_color}, background_color = ${row.background_color}, foreground_color = ${row.foreground_color}, theme = ${row.theme},
+        active = ${row.active}, demo = ${row.demo}, plan = ${row.plan}, working_hours = ${row.working_hours}, booking_policies = ${row.booking_policies},
+        updated_at = now()
+      WHERE id = ${id}
+    `
+    const updated = await sql`SELECT * FROM businesses WHERE id = ${id}`
+    return res.status(200).json(rowToBusiness(updated.rows[0]))
+  }
+  if (method === 'DELETE') {
+    requireSuperAdmin(session)
+    await sql`DELETE FROM businesses WHERE id = ${id}`
+    return res.status(204).end()
+  }
+
   res.status(404).json({ error: 'Rota de empresas não encontrada.' })
 }
 
@@ -286,10 +298,12 @@ async function businessIdOf(table: string, id: string): Promise<string> {
 }
 
 // ---- Categories --------------------------------------------------------
-async function categories(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function categories(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM categories WHERE business_id = ${businessId} ORDER BY "order"`
@@ -299,17 +313,15 @@ async function categories(req: VercelRequest, res: VercelResponse, rest: string[
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('cat')
+      const newId = makeId('cat')
       await sql`
         INSERT INTO categories (id, business_id, name, slug, description, icon, "order", active)
-        VALUES (${id}, ${body.businessId}, ${body.name}, ${body.slug}, ${body.description ?? null}, ${body.icon ?? null}, ${body.order ?? 0}, ${body.active ?? true})
+        VALUES (${newId}, ${body.businessId}, ${body.name}, ${body.slug}, ${body.description ?? null}, ${body.icon ?? null}, ${body.order ?? 0}, ${body.active ?? true})
       `
-      const created = await sql`SELECT * FROM categories WHERE id = ${id}`
+      const created = await sql`SELECT * FROM categories WHERE id = ${newId}`
       return res.status(201).json(rowToCategory(created.rows[0]))
     }
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('categories', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
@@ -332,10 +344,12 @@ async function categories(req: VercelRequest, res: VercelResponse, rest: string[
 }
 
 // ---- Services -------------------------------------------------------------
-async function services(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function services(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM services WHERE business_id = ${businessId} ORDER BY "order"`
@@ -345,17 +359,15 @@ async function services(req: VercelRequest, res: VercelResponse, rest: string[])
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('srv')
+      const newId = makeId('srv')
       await sql`
         INSERT INTO services (id, business_id, category_id, name, slug, short_description, description, duration, price, promotional_price, image, active, featured, "order", professional_ids)
-        VALUES (${id}, ${body.businessId}, ${body.categoryId}, ${body.name}, ${body.slug}, ${body.shortDescription ?? ''}, ${body.description ?? ''}, ${body.duration ?? 30}, ${body.price ?? 0}, ${body.promotionalPrice ?? null}, ${JSON.stringify(body.image ?? null)}, ${body.active ?? true}, ${body.featured ?? false}, ${body.order ?? 0}, ${JSON.stringify(body.professionalIds ?? [])})
+        VALUES (${newId}, ${body.businessId}, ${body.categoryId}, ${body.name}, ${body.slug}, ${body.shortDescription ?? ''}, ${body.description ?? ''}, ${body.duration ?? 30}, ${body.price ?? 0}, ${body.promotionalPrice ?? null}, ${JSON.stringify(body.image ?? null)}, ${body.active ?? true}, ${body.featured ?? false}, ${body.order ?? 0}, ${JSON.stringify(body.professionalIds ?? [])})
       `
-      const created = await sql`SELECT * FROM services WHERE id = ${id}`
+      const created = await sql`SELECT * FROM services WHERE id = ${newId}`
       return res.status(201).json(rowToService(created.rows[0]))
     }
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     if (method === 'GET') {
       const { rows } = await sql`SELECT * FROM services WHERE id = ${id}`
       if (rows.length === 0) notFound('Serviço')
@@ -385,10 +397,12 @@ async function services(req: VercelRequest, res: VercelResponse, rest: string[])
 }
 
 // ---- Professionals ----------------------------------------------------
-async function professionals(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function professionals(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM professionals WHERE business_id = ${businessId} ORDER BY "order"`
@@ -398,17 +412,15 @@ async function professionals(req: VercelRequest, res: VercelResponse, rest: stri
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('pro')
+      const newId = makeId('pro')
       await sql`
         INSERT INTO professionals (id, business_id, name, photo, description, specialties, phone, email, service_ids, working_hours, use_business_hours, active, "order")
-        VALUES (${id}, ${body.businessId}, ${body.name}, ${JSON.stringify(body.photo ?? null)}, ${body.description ?? ''}, ${JSON.stringify(body.specialties ?? [])}, ${body.phone ?? null}, ${body.email ?? null}, ${JSON.stringify(body.serviceIds ?? [])}, ${JSON.stringify(body.workingHours ?? [])}, ${body.useBusinessHours ?? true}, ${body.active ?? true}, ${body.order ?? 0})
+        VALUES (${newId}, ${body.businessId}, ${body.name}, ${JSON.stringify(body.photo ?? null)}, ${body.description ?? ''}, ${JSON.stringify(body.specialties ?? [])}, ${body.phone ?? null}, ${body.email ?? null}, ${JSON.stringify(body.serviceIds ?? [])}, ${JSON.stringify(body.workingHours ?? [])}, ${body.useBusinessHours ?? true}, ${body.active ?? true}, ${body.order ?? 0})
       `
-      const created = await sql`SELECT * FROM professionals WHERE id = ${id}`
+      const created = await sql`SELECT * FROM professionals WHERE id = ${newId}`
       return res.status(201).json(rowToProfessional(created.rows[0]))
     }
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     if (method === 'GET') {
       const { rows } = await sql`SELECT * FROM professionals WHERE id = ${id}`
       if (rows.length === 0) notFound('Profissional')
@@ -438,10 +450,12 @@ async function professionals(req: VercelRequest, res: VercelResponse, rest: stri
 }
 
 // ---- Customers (PII — always admin-gated, except find-or-create during booking) ----
-async function customers(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function customers(req: VercelRequest, res: VercelResponse) {
   const method = req.method
+  const id = strParam(req, 'id')
+  const action = strParam(req, 'action')
 
-  if (rest.length === 1 && rest[0] === 'find-or-create' && method === 'POST') {
+  if (action === 'find-or-create' && method === 'POST') {
     const body = readBody(req)
     if (!body.businessId || !body.name || !body.whatsapp) throw new ApiError(400, 'Dados de cliente incompletos.')
     const normalized = String(body.whatsapp).replace(/\D/g, '')
@@ -452,17 +466,17 @@ async function customers(req: VercelRequest, res: VercelResponse, rest: string[]
       const updated = await sql`SELECT * FROM customers WHERE id = ${existing.id}`
       return res.status(200).json(rowToCustomer(updated.rows[0]))
     }
-    const id = makeId('cus')
+    const newId = makeId('cus')
     await sql`
       INSERT INTO customers (id, business_id, name, phone, whatsapp, email)
-      VALUES (${id}, ${body.businessId}, ${body.name}, ${body.phone || body.whatsapp}, ${body.whatsapp}, ${body.email ?? null})
+      VALUES (${newId}, ${body.businessId}, ${body.name}, ${body.phone || body.whatsapp}, ${body.whatsapp}, ${body.email ?? null})
     `
-    const created = await sql`SELECT * FROM customers WHERE id = ${id}`
+    const created = await sql`SELECT * FROM customers WHERE id = ${newId}`
     return res.status(201).json(rowToCustomer(created.rows[0]))
   }
 
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     const session = await requireSession(req)
     if (method === 'GET') {
       requireBusinessAccess(session, businessId)
@@ -472,18 +486,15 @@ async function customers(req: VercelRequest, res: VercelResponse, rest: string[]
     if (method === 'POST') {
       const body = readBody(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('cus')
+      const newId = makeId('cus')
       await sql`
         INSERT INTO customers (id, business_id, name, phone, whatsapp, email, notes)
-        VALUES (${id}, ${body.businessId}, ${body.name}, ${body.phone ?? ''}, ${body.whatsapp ?? ''}, ${body.email ?? null}, ${body.notes ?? null})
+        VALUES (${newId}, ${body.businessId}, ${body.name}, ${body.phone ?? ''}, ${body.whatsapp ?? ''}, ${body.email ?? null}, ${body.notes ?? null})
       `
-      const created = await sql`SELECT * FROM customers WHERE id = ${id}`
+      const created = await sql`SELECT * FROM customers WHERE id = ${newId}`
       return res.status(201).json(rowToCustomer(created.rows[0]))
     }
-  }
-
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('customers', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
@@ -508,11 +519,13 @@ function redactAppointment(a: ReturnType<typeof rowToAppointment>) {
   return { ...a, customerId: '', code: '', notes: undefined }
 }
 
-async function appointments(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function appointments(req: VercelRequest, res: VercelResponse) {
   const method = req.method
+  const id = strParam(req, 'id')
+  const action = strParam(req, 'action')
 
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const session = await getSession(req)
@@ -526,32 +539,29 @@ async function appointments(req: VercelRequest, res: VercelResponse, rest: strin
       if (!body.businessId || !body.serviceId || !body.customerId || !body.date || !body.startTime) {
         throw new ApiError(400, 'Dados de agendamento incompletos.')
       }
-      const id = makeId('apt')
+      const newId = makeId('apt')
       const seq = await sql`SELECT nextval('appointment_seq') AS n`
       const code = makeAppointmentCode(Number(seq.rows[0].n))
       await sql`
         INSERT INTO appointments (id, business_id, code, service_id, professional_id, customer_id, date, start_time, end_time, duration, price, status, notes)
-        VALUES (${id}, ${body.businessId}, ${code}, ${body.serviceId}, ${body.professionalId ?? null}, ${body.customerId}, ${body.date}, ${body.startTime}, ${body.endTime ?? ''}, ${body.duration ?? 0}, ${body.price ?? 0}, ${body.status ?? 'pending'}, ${body.notes ?? null})
+        VALUES (${newId}, ${body.businessId}, ${code}, ${body.serviceId}, ${body.professionalId ?? null}, ${body.customerId}, ${body.date}, ${body.startTime}, ${body.endTime ?? ''}, ${body.duration ?? 0}, ${body.price ?? 0}, ${body.status ?? 'pending'}, ${body.notes ?? null})
       `
-      const created = await sql`SELECT * FROM appointments WHERE id = ${id}`
+      const created = await sql`SELECT * FROM appointments WHERE id = ${newId}`
       return res.status(201).json(rowToAppointment(created.rows[0]))
     }
-  }
-
-  if (rest.length >= 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('appointments', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
 
-    if (rest.length === 2 && rest[1] === 'cancel' && method === 'POST') {
+    if (action === 'cancel' && method === 'POST') {
       const { reason } = readBody(req)
       await sql`UPDATE appointments SET status = 'cancelled', notes = ${reason ?? null}, updated_at = now() WHERE id = ${id}`
       const updated = await sql`SELECT * FROM appointments WHERE id = ${id}`
       return res.status(200).json(rowToAppointment(updated.rows[0]))
     }
 
-    if (rest.length === 1 && method === 'PATCH') {
+    if (!action && method === 'PATCH') {
       const existing = await sql`SELECT * FROM appointments WHERE id = ${id}`
       const merged = { ...rowToAppointment(existing.rows[0]), ...readBody(req) }
       await sql`
@@ -569,10 +579,12 @@ async function appointments(req: VercelRequest, res: VercelResponse, rest: strin
 }
 
 // ---- Blocked dates (public read, reason stripped; admin write) ------------
-async function blockedDates(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function blockedDates(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const session = await getSession(req)
@@ -585,17 +597,15 @@ async function blockedDates(req: VercelRequest, res: VercelResponse, rest: strin
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('blk')
+      const newId = makeId('blk')
       await sql`
         INSERT INTO blocked_dates (id, business_id, professional_id, date, all_day, start_time, end_time, reason)
-        VALUES (${id}, ${body.businessId}, ${body.professionalId ?? null}, ${body.date}, ${body.allDay ?? true}, ${body.startTime ?? null}, ${body.endTime ?? null}, ${body.reason ?? null})
+        VALUES (${newId}, ${body.businessId}, ${body.professionalId ?? null}, ${body.date}, ${body.allDay ?? true}, ${body.startTime ?? null}, ${body.endTime ?? null}, ${body.reason ?? null})
       `
-      const created = await sql`SELECT * FROM blocked_dates WHERE id = ${id}`
+      const created = await sql`SELECT * FROM blocked_dates WHERE id = ${newId}`
       return res.status(201).json(rowToBlockedDate(created.rows[0]))
     }
-  }
-  if (rest.length === 1 && method === 'DELETE') {
-    const id = rest[0]
+  } else if (method === 'DELETE') {
     const bizId = await businessIdOf('blocked_dates', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
@@ -606,10 +616,23 @@ async function blockedDates(req: VercelRequest, res: VercelResponse, rest: strin
 }
 
 // ---- Gallery ------------------------------------------------------------
-async function gallery(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function gallery(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+  const action = strParam(req, 'action')
+
+  if (action === 'reorder' && method === 'PATCH') {
+    const { businessId, orderedIds } = readBody(req)
+    const session = await requireSession(req)
+    requireBusinessAccess(session, businessId)
+    for (let i = 0; i < (orderedIds ?? []).length; i++) {
+      await sql`UPDATE gallery_images SET "order" = ${i} WHERE id = ${orderedIds[i]} AND business_id = ${businessId}`
+    }
+    return res.status(200).json({ ok: true })
+  }
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM gallery_images WHERE business_id = ${businessId} ORDER BY "order"`
@@ -619,26 +642,15 @@ async function gallery(req: VercelRequest, res: VercelResponse, rest: string[]) 
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('gal')
+      const newId = makeId('gal')
       await sql`
         INSERT INTO gallery_images (id, business_id, image, title, description, "order", active)
-        VALUES (${id}, ${body.businessId}, ${JSON.stringify(body.image)}, ${body.title ?? null}, ${body.description ?? null}, ${body.order ?? 0}, ${body.active ?? true})
+        VALUES (${newId}, ${body.businessId}, ${JSON.stringify(body.image)}, ${body.title ?? null}, ${body.description ?? null}, ${body.order ?? 0}, ${body.active ?? true})
       `
-      const created = await sql`SELECT * FROM gallery_images WHERE id = ${id}`
+      const created = await sql`SELECT * FROM gallery_images WHERE id = ${newId}`
       return res.status(201).json(rowToGalleryImage(created.rows[0]))
     }
-  }
-  if (rest.length === 1 && rest[0] === 'reorder' && method === 'PATCH') {
-    const { businessId, orderedIds } = readBody(req)
-    const session = await requireSession(req)
-    requireBusinessAccess(session, businessId)
-    for (let i = 0; i < (orderedIds ?? []).length; i++) {
-      await sql`UPDATE gallery_images SET "order" = ${i} WHERE id = ${orderedIds[i]} AND business_id = ${businessId}`
-    }
-    return res.status(200).json({ ok: true })
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('gallery_images', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
@@ -658,10 +670,12 @@ async function gallery(req: VercelRequest, res: VercelResponse, rest: string[]) 
 }
 
 // ---- Testimonials -----------------------------------------------------------
-async function testimonials(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function testimonials(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM testimonials WHERE business_id = ${businessId} ORDER BY "order"`
@@ -671,17 +685,15 @@ async function testimonials(req: VercelRequest, res: VercelResponse, rest: strin
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('tst')
+      const newId = makeId('tst')
       await sql`
         INSERT INTO testimonials (id, business_id, name, photo, text, rating, active, demo, "order")
-        VALUES (${id}, ${body.businessId}, ${body.name}, ${JSON.stringify(body.photo ?? null)}, ${body.text}, ${body.rating ?? 5}, ${body.active ?? true}, ${body.demo ?? false}, ${body.order ?? 0})
+        VALUES (${newId}, ${body.businessId}, ${body.name}, ${JSON.stringify(body.photo ?? null)}, ${body.text}, ${body.rating ?? 5}, ${body.active ?? true}, ${body.demo ?? false}, ${body.order ?? 0})
       `
-      const created = await sql`SELECT * FROM testimonials WHERE id = ${id}`
+      const created = await sql`SELECT * FROM testimonials WHERE id = ${newId}`
       return res.status(201).json(rowToTestimonial(created.rows[0]))
     }
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('testimonials', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)
@@ -701,10 +713,12 @@ async function testimonials(req: VercelRequest, res: VercelResponse, rest: strin
 }
 
 // ---- Banners -----------------------------------------------------------
-async function banners(req: VercelRequest, res: VercelResponse, rest: string[]) {
+async function banners(req: VercelRequest, res: VercelResponse) {
   const method = req.method
-  if (rest.length === 0) {
-    const businessId = String(req.query.businessId || '')
+  const id = strParam(req, 'id')
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
     if (method === 'GET') {
       if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
       const { rows } = await sql`SELECT * FROM banners WHERE business_id = ${businessId} ORDER BY "order"`
@@ -714,17 +728,15 @@ async function banners(req: VercelRequest, res: VercelResponse, rest: string[]) 
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      const id = makeId('ban')
+      const newId = makeId('ban')
       await sql`
         INSERT INTO banners (id, business_id, image, title, subtitle, link, active, "order")
-        VALUES (${id}, ${body.businessId}, ${JSON.stringify(body.image)}, ${body.title ?? null}, ${body.subtitle ?? null}, ${body.link ?? null}, ${body.active ?? true}, ${body.order ?? 0})
+        VALUES (${newId}, ${body.businessId}, ${JSON.stringify(body.image)}, ${body.title ?? null}, ${body.subtitle ?? null}, ${body.link ?? null}, ${body.active ?? true}, ${body.order ?? 0})
       `
-      const created = await sql`SELECT * FROM banners WHERE id = ${id}`
+      const created = await sql`SELECT * FROM banners WHERE id = ${newId}`
       return res.status(201).json(rowToBanner(created.rows[0]))
     }
-  }
-  if (rest.length === 1) {
-    const id = rest[0]
+  } else {
     const bizId = await businessIdOf('banners', id)
     const session = await requireSession(req)
     requireBusinessAccess(session, bizId)

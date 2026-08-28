@@ -3,7 +3,7 @@
 // working offline for content already visited. It intentionally does NOT
 // cache cross-origin requests (e.g. WhatsApp links, Unsplash demo images,
 // Google Maps embed) — those legitimately require network access.
-const CACHE_NAME = 'wl-booking-cache-v1'
+const CACHE_NAME = 'wl-booking-cache-v2'
 
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -35,8 +35,10 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) cache.put(request, response.clone())
           return response
         })
-        .catch(() => cached)
-      return cached || networkFetch
+        .catch(() => cached ?? Response.error())
+      // respondWith() must always resolve to a Response — never to undefined
+      // (e.g. both cache and network miss), or the browser throws.
+      return cached ?? networkFetch
     }),
   )
 })
