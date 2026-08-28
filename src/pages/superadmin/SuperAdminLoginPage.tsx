@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
 import { useAuth, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD } from '../../contexts/AuthContext'
-import { Button, Field, Input } from '../../components/Form'
+import { Button, Field, Input, PasswordInput } from '../../components/Form'
 import { superAdminRoutes } from '../../utils/routes'
 
 export function SuperAdminLoginPage() {
@@ -29,7 +29,7 @@ export function SuperAdminLoginPage() {
           <p className="text-xs text-[var(--color-muted-foreground,#6b625a)]">Gestão da plataforma e das empresas</p>
         </div>
         <Field label="E-mail"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={SUPER_ADMIN_EMAIL} /></Field>
-        <Field label="Senha" error={error ?? undefined}><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
+        <Field label="Senha" error={error ?? undefined}><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
         <Button type="submit">Entrar</Button>
         <p className="text-xs text-center text-[var(--color-muted-foreground,#6b625a)]">
           Demonstração: {SUPER_ADMIN_EMAIL} / {SUPER_ADMIN_PASSWORD}

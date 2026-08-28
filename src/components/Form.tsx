@@ -1,5 +1,5 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, forwardRef } from 'react'
-import { Loader2 } from 'lucide-react'
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, forwardRef, useState } from 'react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 // ---- Button -----------------------------------------------------------------
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
@@ -64,6 +64,32 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   ref,
 ) {
   return <input ref={ref} className={`${inputBase} ${error ? 'border-red-400' : ''} ${className}`} {...rest} />
+})
+
+export const PasswordInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { error?: boolean }>(function PasswordInput(
+  { className = '', error, ...rest },
+  ref,
+) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        type={visible ? 'text' : 'password'}
+        className={`${inputBase} pr-10 ${error ? 'border-red-400' : ''} ${className}`}
+        {...rest}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        tabIndex={-1}
+        aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition"
+      >
+        {visible ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  )
 })
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: boolean }>(function TextArea(

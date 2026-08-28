@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { LogIn, Building2 } from 'lucide-react'
 import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessContext'
 import { useAuth, DEMO_ADMIN_PASSWORD } from '../../contexts/AuthContext'
-import { Button, Field, Input } from '../../components/Form'
+import { Button, Field, Input, PasswordInput } from '../../components/Form'
 import { SmartImage } from '../../components/SmartImage'
 import { FullPageLoader, BusinessNotFound } from '../../components/StateScreens'
 import { adminRoutes } from '../../utils/routes'
@@ -54,7 +54,7 @@ function AdminLoginInner() {
           <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={business.email} />
         </Field>
         <Field label="Senha" htmlFor="password" error={error ?? undefined}>
-          <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+          <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </Field>
         <Button type="submit" icon={<LogIn size={16} />}>Entrar</Button>
         <p className="text-xs text-center text-[var(--color-muted-foreground)]">
