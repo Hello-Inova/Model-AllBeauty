@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Static starter sitemap for the "Beauty Demo" business shipped with this
+  project. Because this is a white-label, multi-tenant, client-rendered
+  single-page app, each deployment should regenerate this file (or a
+  per-business equivalent) once real business slugs are known — see README →
+  "SEO" for details.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>./#/empresa/beauty-demo</loc></url>
+  <url><loc>./#/empresa/beauty-demo/servicos</loc></url>
+  <url><loc>./#/empresa/beauty-demo/profissionais</loc></url>
+  <url><loc>./#/empresa/beauty-demo/galeria</loc></url>
+  <url><loc>./#/empresa/beauty-demo/sobre</loc></url>
+  <url><loc>./#/empresa/beauty-demo/contato</loc></url>
+  <url><loc>./#/empresa/beauty-demo/agendamento</loc></url>
+</urlset>

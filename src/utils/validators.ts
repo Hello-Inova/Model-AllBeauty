@@ -1,0 +1,37 @@
+export function isValidPhone(value: string): boolean {
+  const digits = value.replace(/\D/g, '')
+  return digits.length >= 10 && digits.length <= 13
+}
+
+export function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+export function isValidUrl(value: string): boolean {
+  try {
+    const u = new URL(value)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+export function isValidHexColor(value: string): boolean {
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)
+}
+
+export const messages = {
+  required: (field: string) => `Informe ${field}.`,
+  invalidPhone: 'Informe um WhatsApp válido.',
+  invalidEmail: 'Informe um e-mail válido.',
+  chooseService: 'Escolha um serviço.',
+  chooseDate: 'Escolha uma data.',
+  chooseTime: 'Escolha um horário.',
+  slotTaken: 'Esse horário não está mais disponível.',
+  invalidImage: {
+    format: 'Formato de imagem não suportado.',
+    tooLarge: 'A imagem é muito grande.',
+    loadFailed: 'Não foi possível carregar esta imagem.',
+    invalidUrl: 'URL da imagem inválida.',
+  },
+}
