@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Menu, X, CalendarPlus, Building2 } from 'lucide-react'
 import type { Business } from '../../types'
@@ -35,7 +35,15 @@ export function Header({ business }: { business: Business }) {
   ]
 
   return (
-    <header className="sticky top-0 z-30 bg-[var(--color-background)]/95 backdrop-blur border-b border-[var(--color-border)]">
+    // Fragment, not a single wrapping element: the backdrop/drawer below use
+    // `fixed` positioning and must be positioned against the viewport. If
+    // they were nested inside <header>, its `backdrop-blur` (backdrop-filter)
+    // would make <header> their containing block instead — a `fixed` child
+    // then sizes/positions itself relative to that ~64px-tall header, not
+    // the screen (this is what broke the drawer's height before: it was
+    // rendering at header-height instead of 100vh).
+    <Fragment>
+      <header className="sticky top-0 z-30 bg-[var(--color-background)]/95 backdrop-blur border-b border-[var(--color-border)]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <Link to={publicRoutes.home(business.slug)} className="flex items-center gap-2.5 shrink-0">
           <SmartImage asset={business.logo} alt={business.name} className="h-10 w-10 rounded-full object-cover" fallbackClassName="h-10 w-10 rounded-full" icon={Building2} iconSize={18} />
@@ -67,6 +75,7 @@ export function Header({ business }: { business: Business }) {
           {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
+      </header>
 
       {/* Backdrop: dims the page and closes the drawer on tap outside it. Sits
           below the sticky header (z-20 < z-30) so the header's own close
@@ -103,6 +112,6 @@ export function Header({ business }: { business: Business }) {
           <Button className="w-full" icon={<CalendarPlus size={16} />}>Agendar agora</Button>
         </Link>
       </nav>
-    </header>
+    </Fragment>
   )
 }
