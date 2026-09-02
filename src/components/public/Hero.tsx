@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarPlus, Sparkles, Building2 } from 'lucide-react'
+import { CalendarPlus, Sparkles } from 'lucide-react'
 import type { Business } from '../../types'
 import { publicRoutes } from '../../utils/routes'
 import { SmartImage } from '../SmartImage'
@@ -18,14 +18,6 @@ export function Hero({ business }: { business: Business }) {
             <Sparkles size={12} /> Dados demonstrativos
           </span>
         )}
-        <SmartImage
-          asset={business.logo}
-          alt={business.name}
-          className="h-16 w-16 rounded-full object-cover shadow-lg shadow-black/30"
-          fallbackClassName="h-16 w-16 rounded-full shadow-lg shadow-black/30"
-          icon={Building2}
-          iconSize={28}
-        />
         <h1 className="font-heading text-4xl sm:text-5xl font-semibold max-w-xl leading-tight">{business.displayName}</h1>
         <p className="max-w-lg text-white/85 text-base sm:text-lg">{business.description}</p>
         <div className="flex flex-wrap gap-3 pt-2">
