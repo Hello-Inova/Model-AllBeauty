@@ -1,13 +1,14 @@
 import { Star, UserRound } from 'lucide-react'
 import type { Testimonial } from '../../types'
 import { SmartImage } from '../SmartImage'
+import { Carousel } from './Carousel'
 
 export function Testimonials({ testimonials }: { testimonials: Testimonial[] }) {
   if (testimonials.length === 0) return null
   return (
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <Carousel itemClassName="w-[280px] sm:w-[320px]">
       {testimonials.map((t) => (
-        <figure key={t.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 flex flex-col gap-3">
+        <figure key={t.id} className="h-full rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 flex flex-col gap-3">
           <div className="flex gap-0.5 text-amber-400">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star key={i} size={14} fill={i < t.rating ? 'currentColor' : 'none'} className={i < t.rating ? '' : 'text-[var(--color-border)]'} />
@@ -23,6 +24,6 @@ export function Testimonials({ testimonials }: { testimonials: Testimonial[] }) 
           </figcaption>
         </figure>
       ))}
-    </div>
+    </Carousel>
   )
 }

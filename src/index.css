@@ -78,3 +78,13 @@ body {
   to { opacity: 1; }
 }
 .animate-fade-in { animation: fade-in 0.25s ease-out; }
+
+/* Slow, gentle attention ring behind the floating WhatsApp button — a
+   standard "ping" is too fast/twitchy to sit on screen permanently, so this
+   is a longer, calmer cycle purpose-built for a persistent floating action
+   button rather than a one-off notification. */
+@keyframes ping-slow {
+  0% { transform: scale(1); opacity: 0.55; }
+  75%, 100% { transform: scale(1.7); opacity: 0; }
+}
+.animate-ping-slow { animation: ping-slow 2.5s cubic-bezier(0, 0, 0.2, 1) infinite; }

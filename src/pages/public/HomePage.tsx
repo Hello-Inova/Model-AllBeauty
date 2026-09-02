@@ -7,6 +7,7 @@ import { ServiceCard } from '../../components/public/ServiceCard'
 import { ProfessionalCard } from '../../components/public/ProfessionalCard'
 import { Gallery } from '../../components/public/Gallery'
 import { Testimonials } from '../../components/public/Testimonials'
+import { Carousel } from '../../components/public/Carousel'
 import { ContactSection } from '../../components/public/ContactSection'
 import { Button } from '../../components/Form'
 import { publicRoutes } from '../../utils/routes'
@@ -51,11 +52,11 @@ export function HomePage() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
         <SectionHeading eyebrow="Catálogo" title="Serviços em destaque" action={{ to: publicRoutes.services(business.slug), label: 'Ver todos os serviços' }} />
         {shownServices.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <Carousel itemClassName="w-[280px] sm:w-[320px]">
             {shownServices.map((s) => (
               <ServiceCard key={s.id} business={business} service={s} category={categories.find((c) => c.id === s.categoryId)} />
             ))}
-          </div>
+          </Carousel>
         ) : (
           <p className="text-sm text-[var(--color-muted-foreground)]">Nenhum serviço publicado ainda.</p>
         )}
@@ -80,11 +81,11 @@ export function HomePage() {
       {activeProfessionals.length > 0 && (
         <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
           <SectionHeading eyebrow="Equipe" title="Nossos profissionais" action={{ to: publicRoutes.professionals(business.slug), label: 'Ver equipe completa' }} />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {activeProfessionals.slice(0, 4).map((p) => (
+          <Carousel itemClassName="w-[200px] sm:w-[220px]">
+            {activeProfessionals.map((p) => (
               <ProfessionalCard key={p.id} professional={p} />
             ))}
-          </div>
+          </Carousel>
         </section>
       )}
 
