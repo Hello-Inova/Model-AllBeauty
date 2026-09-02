@@ -53,7 +53,7 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   if (!businessSlug || !email || !password) {
     return res.status(400).json({ error: 'Informe empresa, e-mail e senha.' })
   }
-  const biz = await sql`SELECT id, slug FROM businesses WHERE slug = ${businessSlug} LIMIT 1`
+  const biz = await sql`SELECT id, slug FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
   if (biz.rows.length === 0) return res.status(401).json({ error: 'E-mail ou senha inválidos.' })
   const business = biz.rows[0]
 

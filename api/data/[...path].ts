@@ -88,7 +88,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
   const action = strParam(req, 'action')
 
   if (slug !== undefined) {
-    const { rows } = await sql`SELECT * FROM businesses WHERE slug = ${slug} LIMIT 1`
+    const { rows } = await sql`SELECT * FROM businesses WHERE lower(slug) = lower(${slug}) LIMIT 1`
     if (rows.length === 0) return res.status(200).json(null)
     return res.status(200).json(rowToBusiness(rows[0]))
   }
