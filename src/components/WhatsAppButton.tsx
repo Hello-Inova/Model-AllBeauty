@@ -17,7 +17,7 @@ export function WhatsAppButton({ business, message }: { business: Business; mess
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Falar no WhatsApp"
-      className="group fixed bottom-5 right-5 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/25 ring-[3px] ring-white transition hover:scale-105 hover:brightness-105 active:scale-95"
+      className="group fixed bottom-5 right-5 z-40 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg shadow-black/25 transition hover:scale-105 hover:brightness-105 active:scale-95"
     >
       <span className="absolute inset-0 rounded-full bg-[#25D366] opacity-75 animate-ping-slow motion-reduce:hidden" aria-hidden="true" />
       <WhatsAppIcon size={28} className="relative" />

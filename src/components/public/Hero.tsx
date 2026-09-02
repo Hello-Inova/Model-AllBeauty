@@ -21,8 +21,8 @@ export function Hero({ business }: { business: Business }) {
         <SmartImage
           asset={business.logo}
           alt={business.name}
-          className="h-16 w-16 rounded-full object-cover border-2 border-white/40"
-          fallbackClassName="h-16 w-16 rounded-full border-2 border-white/40"
+          className="h-16 w-16 rounded-full object-cover shadow-lg shadow-black/30"
+          fallbackClassName="h-16 w-16 rounded-full shadow-lg shadow-black/30"
           icon={Building2}
           iconSize={28}
         />
