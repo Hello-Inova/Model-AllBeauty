@@ -59,14 +59,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // fetches them itself, outside of this app's session) — business logos are
   // always either a "url" asset or a Vercel Blob "upload" URL (see
   // ApiImageStorage), never a local blob:/data: URL, so this is always safe.
+  //
+  // Each icon is listed twice, once per `purpose`. Without an explicit
+  // "maskable" entry, Android doesn't trust the icon to safely fill its
+  // adaptive-icon mask and silently shrinks it, padding the rest with a
+  // plain white circle — the washed-out ring reported around business logos
+  // after "Adicionar à Tela de Início". Declaring it maskable tells Android
+  // to apply its own mask shape directly to the logo instead of padding it.
+  // ("any" is kept too, for contexts — the browser tab, iOS — that must show
+  // the untouched image.) This assumes the business logo already reads
+  // reasonably full-bleed/roughly circular; a logo with a lot of built-in
+  // transparent margin may still want a dedicated maskable asset.
   const icons = logoUrl
     ? [
-        { src: logoUrl, sizes: '192x192', type: 'image/png' },
-        { src: logoUrl, sizes: '512x512', type: 'image/png' },
+        { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+        { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ]
     : [
-        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+        { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ]
 
   // scope and start_url are kept as the exact same string (no trailing
