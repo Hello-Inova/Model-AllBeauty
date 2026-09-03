@@ -7,6 +7,7 @@ import type {
   BusinessBackup,
   Category,
   Customer,
+  FinanceReport,
   GalleryImage,
   PlatformSettings,
   Professional,
@@ -116,6 +117,12 @@ export interface DataRepository {
   updatePlan(id: string, data: Partial<Pick<BillingPlanDef, 'name' | 'priceCents' | 'discountCents' | 'active'>>): Promise<BillingPlanDef>
   getPlatformSettings(): Promise<PlatformSettings>
   updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings>
+
+  // ---- Gestão Financeira (Super Admin) -------------------------------------
+  // Relatório somente-leitura: MRR estimado, receita confirmada, em aberto e
+  // atrasada, contagem de empresas por status de assinatura, série mensal dos
+  // últimos 12 meses e lista de transações (filtrável por status/empresa).
+  getFinanceReport(filters?: { status?: string; businessId?: string }): Promise<FinanceReport>
 
   // ---- Housekeeping -------------------------------------------------------
   resetDemoData(): Promise<void>

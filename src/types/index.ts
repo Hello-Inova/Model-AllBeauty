@@ -136,6 +136,35 @@ export interface PlatformSettings {
   pixKeyOwnerName: string
 }
 
+/** Resumo financeiro da plataforma (Gestão Financeira do Super Admin). Somente leitura. */
+export interface FinanceSummary {
+  mrrCents: number
+  confirmedThisMonthCents: number
+  confirmedAllTimeCents: number
+  pendingCents: number
+  overdueCents: number
+  businessesActive: number
+  businessesOverdue: number
+  businessesNoSubscription: number
+  businessesExempt: number
+}
+
+export interface FinanceMonthlyPoint {
+  month: string // 'YYYY-MM'
+  totalCents: number
+}
+
+export interface FinanceTransaction extends BillingTransaction {
+  businessName: string
+  businessSlug: string
+}
+
+export interface FinanceReport {
+  summary: FinanceSummary
+  monthly: FinanceMonthlyPoint[]
+  transactions: FinanceTransaction[]
+}
+
 export interface Category {
   id: ID
   businessId: ID

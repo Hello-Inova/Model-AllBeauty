@@ -39,6 +39,7 @@ import { SuperAdminGate } from './pages/superadmin/SuperAdminGate'
 import { SuperAdminDashboardPage } from './pages/superadmin/SuperAdminDashboardPage'
 import { SuperAdminOnboardingPage } from './pages/superadmin/SuperAdminOnboardingPage'
 import { SuperAdminPlansPage } from './pages/superadmin/SuperAdminPlansPage'
+import { SuperAdminFinancePage } from './pages/superadmin/SuperAdminFinancePage'
 import { SuperAdminSettingsPage } from './pages/superadmin/SuperAdminSettingsPage'
 import { SuperAdminProfilePage } from './pages/superadmin/SuperAdminProfilePage'
 
@@ -87,6 +88,7 @@ export default function AppRouter() {
               <Route index element={<SuperAdminDashboardPage />} />
               <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />
               <Route path="planos" element={<SuperAdminPlansPage />} />
+              <Route path="financeiro" element={<SuperAdminFinancePage />} />
               <Route path="configuracoes" element={<SuperAdminSettingsPage />} />
               <Route path="perfil" element={<SuperAdminProfilePage />} />
             </Route>

@@ -5,7 +5,7 @@ import {
   rowToBusiness, businessToRow,
   rowToCategory, rowToService, rowToProfessional, rowToCustomer,
   rowToAppointment, rowToBlockedDate, rowToGalleryImage, rowToTestimonial, rowToBanner,
-  rowToPlan, rowToPlatformSettings,
+  rowToPlan, rowToPlatformSettings, rowToBillingTransaction,
 } from '../_lib/mappers.js'
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 
@@ -74,6 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (resource === 'banners') return await banners(req, res)
     if (resource === 'plans') return await plans(req, res)
     if (resource === 'platform-settings') return await platformSettings(req, res)
+    if (resource === 'finance') return await finance(req, res)
 
     res.status(404).json({ error: 'Recurso não encontrado.' })
   } catch (e) {
@@ -820,4 +821,90 @@ async function platformSettings(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(rowToPlatformSettings(rows[0] ?? {}))
   }
   res.status(404).json({ error: 'Rota de configurações não encontrada.' })
+}
+
+// ---- Gestão financeira (Super Admin) ---------------------------------------
+// Somente leitura — nada aqui escreve em billing_transactions/businesses,
+// que continuam sendo alterados apenas por api/billing e pelo webhook do
+// Asaas. Junta o histórico de cobranças de TODAS as empresas com um resumo
+// (MRR estimado, recebido no mês, em aberto/atrasado) para a tela de
+// Gestão Financeira do Super Admin.
+async function finance(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'GET') return res.status(404).json({ error: 'Rota financeira não encontrada.' })
+  const session = await requireSession(req)
+  requireSuperAdmin(session)
+
+  const statusFilter = strParam(req, 'status')
+  const businessIdFilter = strParam(req, 'businessId')
+
+  const [mrrRows, countRows, confirmedMonthRows, confirmedAllTimeRows, openRows, monthlyRows] = await Promise.all([
+    sql`
+      SELECT COALESCE(ROUND(SUM((p.price_cents - p.discount_cents)::numeric / p.months)), 0) AS mrr_cents
+      FROM businesses b JOIN plans p ON p.id = b.billing_plan
+      WHERE b.billing_type = 'padrao' AND b.subscription_status = 'ativa'
+    `,
+    sql`SELECT billing_type, subscription_status, COUNT(*)::int AS n FROM businesses GROUP BY billing_type, subscription_status`,
+    sql`
+      SELECT COALESCE(SUM(value_cents), 0) AS total FROM billing_transactions
+      WHERE status IN ('confirmed', 'received')
+        AND (paid_at AT TIME ZONE 'America/Sao_Paulo') >= date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')
+    `,
+    sql`SELECT COALESCE(SUM(value_cents), 0) AS total FROM billing_transactions WHERE status IN ('confirmed', 'received')`,
+    sql`SELECT status, COALESCE(SUM(value_cents), 0) AS total FROM billing_transactions WHERE status IN ('pending', 'overdue') GROUP BY status`,
+    sql`
+      SELECT to_char((paid_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM') AS month, SUM(value_cents)::int AS total
+      FROM billing_transactions
+      WHERE status IN ('confirmed', 'received') AND paid_at >= (now() - interval '12 months')
+      GROUP BY month ORDER BY month ASC
+    `,
+  ])
+
+  let businessesActive = 0
+  let businessesOverdue = 0
+  let businessesNoSubscription = 0
+  let businessesExempt = 0
+  for (const r of countRows.rows) {
+    if (r.billing_type === 'isento') businessesExempt += r.n
+    else if (r.subscription_status === 'ativa') businessesActive += r.n
+    else if (r.subscription_status === 'atrasada') businessesOverdue += r.n
+    else businessesNoSubscription += r.n
+  }
+  const pendingCents = Number(openRows.rows.find((r) => r.status === 'pending')?.total ?? 0)
+  const overdueCents = Number(openRows.rows.find((r) => r.status === 'overdue')?.total ?? 0)
+
+  const transactionsResult = statusFilter
+    ? businessIdFilter
+      ? await sql`
+          SELECT bt.*, b.display_name, b.slug FROM billing_transactions bt JOIN businesses b ON b.id = bt.business_id
+          WHERE bt.status = ${statusFilter} AND bt.business_id = ${businessIdFilter} ORDER BY bt.created_at DESC LIMIT 200
+        `
+      : await sql`
+          SELECT bt.*, b.display_name, b.slug FROM billing_transactions bt JOIN businesses b ON b.id = bt.business_id
+          WHERE bt.status = ${statusFilter} ORDER BY bt.created_at DESC LIMIT 200
+        `
+    : businessIdFilter
+      ? await sql`
+          SELECT bt.*, b.display_name, b.slug FROM billing_transactions bt JOIN businesses b ON b.id = bt.business_id
+          WHERE bt.business_id = ${businessIdFilter} ORDER BY bt.created_at DESC LIMIT 200
+        `
+      : await sql`
+          SELECT bt.*, b.display_name, b.slug FROM billing_transactions bt JOIN businesses b ON b.id = bt.business_id
+          ORDER BY bt.created_at DESC LIMIT 200
+        `
+
+  res.status(200).json({
+    summary: {
+      mrrCents: Number(mrrRows.rows[0]?.mrr_cents ?? 0),
+      confirmedThisMonthCents: Number(confirmedMonthRows.rows[0]?.total ?? 0),
+      confirmedAllTimeCents: Number(confirmedAllTimeRows.rows[0]?.total ?? 0),
+      pendingCents,
+      overdueCents,
+      businessesActive,
+      businessesOverdue,
+      businessesNoSubscription,
+      businessesExempt,
+    },
+    monthly: monthlyRows.rows.map((r) => ({ month: r.month, totalCents: Number(r.total ?? 0) })),
+    transactions: transactionsResult.rows.map((r) => ({ ...rowToBillingTransaction(r), businessName: r.display_name, businessSlug: r.slug })),
+  })
 }

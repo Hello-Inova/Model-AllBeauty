@@ -72,10 +72,12 @@ O sistema usa **Vercel Postgres** (banco de dados) e **Vercel Blob** (armazename
 
 1. No projeto na Vercel, aba **Storage → Create Database → Postgres** (via Neon, integração nativa da Vercel).
 2. Depois de criado, a Vercel injeta automaticamente as variáveis `POSTGRES_URL` (ou `DATABASE_URL`, dependendo da versão da integração — o código já reconhece as duas) no projeto.
-3. Abra o **Query** (console SQL) do banco pelo próprio painel da Vercel e cole o conteúdo do arquivo [`db/schema.sql`](./db/schema.sql) deste repositório. Execute. Isso cria todas as tabelas (`businesses`, `admin_users`, `categories`, `services`, `professionals`, `customers`, `appointments`, `blocked_dates`, `gallery_images`, `testimonials`, `banners`, `plans`, `billing_transactions`, `platform_settings`).
+3. Abra o **Query** (console SQL) do banco pelo próprio painel da Vercel e cole o conteúdo do arquivo [`db/schema.sql`](./db/schema.sql) deste repositório. Execute. Isso cria todas as tabelas (`businesses`, `admin_users`, `categories`, `services`, `professionals`, `customers`, `appointments`, `blocked_dates`, `gallery_images`, `testimonials`, `banners`, `plans`, `billing_transactions`, `platform_settings`, `login_attempts`).
 4. No mesmo console, cole o conteúdo do arquivo [`db/seed.sql`](./db/seed.sql) e execute. Isso cadastra a empresa de demonstração **Beauty Demo** (14 serviços, 7 categorias, 6 profissionais, clientes e agendamentos de exemplo) e um usuário **super admin**, com senhas já criptografadas (bcrypt) — as senhas em texto puro geradas nesse processo estão listadas em [Acessos gerados no seed](#acessos-gerados-no-seed) e não ficam salvas em nenhum arquivo do repositório.
 
 > **Banco já existente (deploy anterior a este recurso)?** `schema.sql` só cria tabelas que ainda não existem — em um banco que já estava em produção antes da funcionalidade de assinaturas, as colunas e tabelas novas não aparecem sozinhas. Nesse caso, execute também o conteúdo de [`db/migration-billing.sql`](./db/migration-billing.sql) no mesmo console SQL — é uma migração idempotente (`ADD COLUMN IF NOT EXISTS`/`CREATE TABLE IF NOT EXISTS`), segura para rodar mesmo que parte da estrutura já exista.
+>
+> **Banco já existente (deploy anterior ao limite de tentativas de login)?** Execute também [`db/migration-login-attempts.sql`](./db/migration-login-attempts.sql) — cria a tabela `login_attempts` usada para bloquear logins após 3 tentativas incorretas por dia (veja [Segurança](#segurança)). Também idempotente (`CREATE TABLE IF NOT EXISTS`).
 
 > Se quiser gerar um novo `db/seed.sql` com senhas diferentes (por exemplo, antes de entregar o sistema a um cliente), rode `npm run generate-seed` neste projeto — o script reaproveita os dados de demonstração já existentes em `src/data/demoData.ts`, gera senhas aleatórias novas e imprime as credenciais no terminal uma única vez.
 
@@ -146,6 +148,7 @@ O Asaas avisa o sistema sempre que um pagamento é confirmado, recusado ou fica 
 - **Cobrar via WhatsApp**: um botão por empresa abre o WhatsApp já com uma mensagem de cobrança pronta, incluindo o valor, o vencimento e a chave Pix da Hello Inova, para uso alternativo ao cartão automático.
 - **Editar os planos** (valores e descontos de mensal/semestral/anual).
 - **Trocar o plano de cada empresa** (mensal/semestral/anual) e o **tipo de cobrança**: `padrao` (cobra normalmente pelo plano) ou `isento` (empresa cortesia, nunca cobrada — some o aviso de vencimento e a página de assinatura do painel dela).
+- **Gestão Financeira** (`/super-admin/financeiro`): painel somente-leitura com a receita da plataforma — MRR estimado (receita mensal recorrente das empresas ativas), total confirmado no mês e histórico, valores em aberto e atrasados, contagem de empresas por status de assinatura, gráfico dos últimos 12 meses e a lista completa de transações (filtrável por status e por empresa), alimentada pelas cobranças já registradas em `billing_transactions` via webhook do Asaas.
 
 ### Termos de uso, privacidade e cookies
 
@@ -224,7 +227,7 @@ SITE + PAINEL DA EMPRESA
 api/
 ├── _lib/             Conexão com o banco, autenticação/sessão, mapeamento linha↔objeto, cliente Asaas
 ├── auth/[...action].ts   Login, logout, sessão atual, troca de senha, aceite de termos
-├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos, planos, configurações da plataforma etc.
+├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos, planos, configurações da plataforma, relatório financeiro etc.
 ├── billing/[...action].ts  Assinar/atualizar cartão, consultar status de cobrança de uma empresa
 ├── webhooks/asaas.ts  Recebe confirmações de pagamento do Asaas e atualiza o status de assinatura
 └── upload.ts         Upload e remoção de imagens no Vercel Blob
@@ -232,6 +235,7 @@ api/
 db/
 ├── schema.sql            DDL de todas as tabelas (rodar uma vez, na criação do banco)
 ├── migration-billing.sql Migração idempotente das tabelas/colunas de assinatura, para bancos já existentes
+├── migration-login-attempts.sql Migração idempotente da tabela de limite de tentativas de login, para bancos já existentes
 └── seed.sql              Dados de demonstração + super admin (gerado por scripts/generate-seed.mts)
 
 scripts/
@@ -263,6 +267,7 @@ src/
 - O `JWT_SECRET` deve ser um valor longo, aleatório e exclusivo deste ambiente de produção — nunca reutilize um valor de exemplo ou de desenvolvimento.
 - **Dados de cartão de crédito nunca são armazenados neste sistema.** O número completo, a validade e o CVV informados na página de assinatura são recebidos pelo backend e repassados imediatamente ao Asaas via HTTPS, sem serem gravados em log nem no banco de dados — apenas a bandeira e os 4 últimos dígitos (devolvidos pelo próprio Asaas) ficam salvos, só para exibição.
 - Os campos de cobrança de uma empresa (`billing_type`, `billing_plan`) só podem ser alterados pelo Super Admin, nunca pela própria empresa; os campos de status da assinatura (`subscription_status`, `plan_expires_at`, dados do cartão) não são editáveis por nenhuma rota genérica — só são escritos internamente pelo fluxo de cobrança (`api/billing`) e pelo webhook do Asaas (`api/webhooks/asaas`), este último protegido por um token compartilhado (`ASAAS_WEBHOOK_TOKEN`).
+- **Limite de tentativas de login**: tanto o login do admin da empresa quanto o do Super Admin bloqueiam novas tentativas após **3 senhas incorretas no mesmo dia** (fuso `America/Sao_Paulo`), liberando novamente à meia-noite. O contador é identificado por uma chave derivada do e-mail/slug informado — inclusive tentativas contra e-mails ou empresas inexistentes são contabilizadas, para não permitir enumerar contas válidas por tentativa e erro (`api/_lib/auth.ts`, tabela `login_attempts`).
 
 ---
 

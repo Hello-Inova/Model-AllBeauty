@@ -8,6 +8,7 @@ import type {
   BusinessBackup,
   Category,
   Customer,
+  FinanceReport,
   GalleryImage,
   PlatformSettings,
   Professional,
@@ -241,6 +242,11 @@ class ApiProvider implements DataRepository {
   }
   async updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings> {
     return patch('platform-settings', data)
+  }
+
+  // ---- Gestão Financeira (Super Admin) -------------------------------------
+  async getFinanceReport(filters?: { status?: string; businessId?: string }): Promise<FinanceReport> {
+    return get(`finance${qs({ status: filters?.status, businessId: filters?.businessId })}`)
   }
 
   // ---- Housekeeping -------------------------------------------------------

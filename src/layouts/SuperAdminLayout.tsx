@@ -1,11 +1,12 @@
 import { type ReactNode, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ShieldCheck, LogOut, Building2, CreditCard, Settings, UserCircle, Menu, X, Plus } from 'lucide-react'
+import { ShieldCheck, LogOut, Building2, CreditCard, Settings, UserCircle, Menu, X, Plus, LineChart } from 'lucide-react'
 import { superAdminRoutes } from '../utils/routes'
 import { useAuth } from '../contexts/AuthContext'
 
 const nav = [
   { to: superAdminRoutes.home, label: 'Empresas', icon: Building2, end: true },
+  { to: superAdminRoutes.finance, label: 'Gestão Financeira', icon: LineChart, end: false },
   { to: superAdminRoutes.plans, label: 'Planos de assinatura', icon: CreditCard, end: false },
   { to: superAdminRoutes.settings, label: 'Configurações', icon: Settings, end: false },
   { to: superAdminRoutes.profile, label: 'Perfil', icon: UserCircle, end: false },
