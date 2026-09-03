@@ -2,18 +2,22 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { sql } from './_lib/db.js'
 
 // ---------------------------------------------------------------------------
-// Dynamic Web App Manifest for the business admin panel (/admin/<slug>).
+// Dynamic Web App Manifest for the business admin panel (/admin/<slug>) and
+// for the Super Admin panel (/super-admin).
 //
 // The static file at public/manifest.webmanifest covers the public site with
-// generic "Plataforma de Agendamento" branding. The admin panel instead wants
-// each business owner to see THEIR OWN name and logo when they add the panel
-// to their phone's home screen — a single static manifest can't do that, so
-// InstallAppPrompt.tsx swaps <link rel="manifest"> to point here (passing
-// ?slug=) as soon as the business is known. See src/utils/pwa.ts.
+// generic "Plataforma de Agendamento" branding. The admin panels instead want
+// their own scope/start_url (and, for a business, its own name and logo) when
+// added to a phone's home screen — a single static manifest can't do that, so
+// InstallAppPrompt.tsx swaps <link rel="manifest"> to point here as soon as
+// the panel is known: ?slug=<slug> for a business, ?panel=super-admin for the
+// Super Admin panel. See src/utils/pwa.ts.
 //
-// No auth required: this only exposes what the public storefront already
-// shows for that slug (name + logo + brand color), and browsers fetch a
-// manifest without sending credentials/cookies by default anyway.
+// No auth required: for a business this only exposes what the public
+// storefront already shows for that slug (name + logo + brand color); the
+// Super Admin variant is static generic branding with no data lookup at all.
+// Browsers also fetch a manifest without sending credentials/cookies by
+// default, so none of this depends on the caller being signed in.
 // ---------------------------------------------------------------------------
 
 function strParam(req: VercelRequest, key: string): string | undefined {
@@ -29,12 +33,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const slug = strParam(req, 'slug')
-  let displayName = 'Painel administrativo'
+  const isSuperAdmin = strParam(req, 'panel') === 'super-admin'
+  let displayName = isSuperAdmin ? 'Super Admin' : 'Painel administrativo'
   let logoUrl: string | undefined
   let themeColor = '#b3873e'
   let backgroundColor = '#ffffff'
 
-  if (slug) {
+  // Super Admin has no per-business branding to look up — it's the Hello
+  // Inova team's own panel, so it always gets the generic platform icons.
+  if (slug && !isSuperAdmin) {
     try {
       const { rows } = await sql`
         SELECT display_name, logo, primary_color, background_color
@@ -89,11 +96,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // prefix of start_url, so a mismatched trailing slash (e.g. scope
   // "/admin/x/" vs start_url "/admin/x") can make start_url fall outside
   // its own scope in a strict validator.
-  const scope = slug ? `/admin/${slug}` : '/'
+  const scope = isSuperAdmin ? '/super-admin' : slug ? `/admin/${slug}` : '/'
   const manifest = {
-    name: `${displayName} — Painel`,
+    name: isSuperAdmin ? 'Super Admin — Hello Inova' : `${displayName} — Painel`,
     short_name: displayName.length > 12 ? `${displayName.slice(0, 11)}…` : displayName,
-    description: `Painel administrativo de ${displayName}.`,
+    description: isSuperAdmin ? 'Painel de administração da plataforma Hello Inova.' : `Painel administrativo de ${displayName}.`,
     start_url: scope,
     scope,
     display: 'standalone',

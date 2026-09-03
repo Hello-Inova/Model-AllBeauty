@@ -1,7 +1,8 @@
 // ---------------------------------------------------------------------------
 // Small helpers behind the "Adicionar à tela de início" prompt shown in the
-// business admin panel (src/components/admin/InstallAppPrompt.tsx). Kept
-// framework-free so they have no React dependency of their own.
+// business admin panel and the Super Admin panel
+// (src/components/admin/InstallAppPrompt.tsx). Kept framework-free so they
+// have no React dependency of their own.
 // ---------------------------------------------------------------------------
 
 import type { Business } from '../types'
@@ -65,7 +66,29 @@ export function applyBusinessManifest(business: Business): void {
   }
 }
 
-/** Undoes applyBusinessManifest(), restoring the generic platform tags baked into index.html. */
+/**
+ * Same idea as applyBusinessManifest(), for the Super Admin panel: it isn't
+ * tied to any one business, so it just points the manifest at the
+ * Super-Admin-scoped manifest (/super-admin start_url/scope) with the
+ * generic platform name/icon rather than swapping in a logo.
+ */
+export function applySuperAdminManifest(): void {
+  if (typeof document === 'undefined') return
+
+  let manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+  if (!manifestLink) {
+    manifestLink = document.createElement('link')
+    manifestLink.rel = 'manifest'
+    document.head.appendChild(manifestLink)
+  }
+  manifestLink.href = '/api/manifest?panel=super-admin'
+
+  setMetaContent('theme-color', '#b3873e')
+  setMetaContent('apple-mobile-web-app-title', 'Super Admin')
+  setMetaContent('apple-mobile-web-app-capable', 'yes')
+}
+
+/** Undoes applyBusinessManifest()/applySuperAdminManifest(), restoring the generic platform tags baked into index.html. */
 export function restoreDefaultManifest(): void {
   if (typeof document === 'undefined') return
   const base = import.meta.env.BASE_URL

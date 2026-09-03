@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { ShieldCheck, LogOut, Building2, CreditCard, Settings, UserCircle, Menu, X, Plus, LineChart } from 'lucide-react'
 import { superAdminRoutes } from '../utils/routes'
 import { useAuth } from '../contexts/AuthContext'
+import { InstallAppPrompt } from '../components/admin/InstallAppPrompt'
 
 const nav = [
   { to: superAdminRoutes.home, label: 'Empresas', icon: Building2, end: true },
@@ -77,6 +78,7 @@ export function SuperAdminLayout({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex-1 min-w-0 flex flex-col">
+        <InstallAppPrompt />
         <header className="lg:hidden flex items-center justify-between px-4 h-14 bg-[var(--color-card)] border-b border-[var(--color-border)]">
           <span className="font-heading font-semibold text-sm flex items-center gap-2">
             <ShieldCheck size={18} /> Super Admin
