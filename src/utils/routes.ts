@@ -33,6 +33,8 @@ export const superAdminRoutes = {
   login: '/super-admin/login',
   home: '/super-admin',
   onboarding: '/super-admin/nova-empresa',
+  plans: '/super-admin/planos',
+  settings: '/super-admin/configuracoes',
 }
 
 export const legalRoutes = {

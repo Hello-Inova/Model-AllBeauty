@@ -1,23 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  Plus,
-  Building2,
-  ExternalLink,
-  Settings2,
-  ToggleLeft,
-  ToggleRight,
-  LayoutGrid,
-  CalendarCheck2,
-  Users,
-  Trash2,
-  MessageCircle,
-  Wallet,
-  Save,
-} from 'lucide-react'
+import { Plus, Building2, ExternalLink, Settings2, ToggleLeft, ToggleRight, LayoutGrid, Users, Trash2, MessageCircle } from 'lucide-react'
 import { dataRepository } from '../../repositories'
 import type { Business, BillingPlanDef, BillingPlanId, BillingType, PlatformSettings } from '../../types'
-import { Badge, Button, EmptyState, Field, Input, SectionCard, Select } from '../../components/Form'
+import { Badge, Button, EmptyState, SectionCard, Select } from '../../components/Form'
 import { ScrollableTable, Td, Th } from '../../components/ScrollableTable'
 import { SmartImage } from '../../components/SmartImage'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -25,15 +11,7 @@ import { superAdminRoutes, adminRoutes, publicRoutes } from '../../utils/routes'
 import { DashboardCard } from '../../components/admin/DashboardCard'
 import { useToast } from '../../contexts/ToastContext'
 import { whatsappLink } from '../../utils/whatsapp'
-import {
-  BILLING_PLAN_LABELS,
-  SUBSCRIPTION_STATUS_LABELS,
-  billingCollectionMessage,
-  daysUntil,
-  formatCents,
-  planDiscountPercent,
-  planFinalPriceCents,
-} from '../../utils/billing'
+import { SUBSCRIPTION_STATUS_LABELS, billingCollectionMessage, daysUntil } from '../../utils/billing'
 
 const PLAN_LABELS: Record<string, string> = { basico: 'Básico', profissional: 'Profissional', premium: 'Premium' }
 
@@ -208,26 +186,6 @@ export function SuperAdminDashboardPage() {
         )}
       </SectionCard>
 
-      <SectionCard title="Planos de assinatura" description="Valores cobrados mensalmente das empresas via Asaas (cartão de crédito). Edite os preços abaixo.">
-        <div className="grid sm:grid-cols-3 gap-4">
-          {plans.map((p) => (
-            <BillingPlanEditor key={p.id} plan={p} onSaved={load} />
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Configurações da plataforma" description="Chave Pix da Hello Inova, incluída automaticamente nas mensagens de cobrança enviadas via WhatsApp.">
-        <PlatformSettingsForm settings={settings} onSaved={load} />
-      </SectionCard>
-
-      <SectionCard title="Estrutura de planos do site" description="Recursos incluídos em cada nível de plano do site white-label (não relacionado à cobrança da mensalidade).">
-        <div className="grid sm:grid-cols-3 gap-4">
-          <PlanCard name="Básico" features={['Catálogo', 'Agendamento', '1 profissional']} />
-          <PlanCard name="Profissional" features={['Vários profissionais', 'Clientes', 'Relatórios', 'WhatsApp']} highlighted />
-          <PlanCard name="Premium" features={['Pagamentos', 'Automação', 'Relatórios avançados', 'Recursos adicionais']} />
-        </div>
-      </SectionCard>
-
       <ConfirmDialog
         open={!!deleting}
         title="Excluir empresa"
@@ -237,111 +195,6 @@ export function SuperAdminDashboardPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleting(null)}
       />
-    </div>
-  )
-}
-
-function BillingPlanEditor({ plan, onSaved }: { plan: BillingPlanDef; onSaved: () => void }) {
-  const toast = useToast()
-  const [priceReais, setPriceReais] = useState((plan.priceCents / 100).toFixed(2))
-  const [discountReais, setDiscountReais] = useState((plan.discountCents / 100).toFixed(2))
-  const [saving, setSaving] = useState(false)
-
-  async function handleSave() {
-    const priceCents = Math.round(parseFloat(priceReais.replace(',', '.')) * 100)
-    const discountCents = Math.round(parseFloat(discountReais.replace(',', '.')) * 100)
-    if (Number.isNaN(priceCents) || Number.isNaN(discountCents)) {
-      toast.error('Informe valores numéricos válidos.')
-      return
-    }
-    setSaving(true)
-    try {
-      await dataRepository.updatePlan(plan.id, { priceCents, discountCents })
-      toast.success('Plano atualizado.')
-      onSaved()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Não foi possível salvar o plano.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const finalCents = Math.round((parseFloat(priceReais.replace(',', '.')) || 0) * 100) - Math.round((parseFloat(discountReais.replace(',', '.')) || 0) * 100)
-
-  return (
-    <div className="rounded-xl border border-[var(--color-border)] p-4 flex flex-col gap-2.5">
-      <div className="flex items-center gap-2">
-        <CalendarCheck2 size={16} className="text-[var(--color-primary)]" />
-        <h3 className="font-heading font-semibold text-sm">{BILLING_PLAN_LABELS[plan.id] ?? plan.name}</h3>
-      </div>
-      <Field label="Valor cheio (R$)">
-        <Input inputMode="decimal" value={priceReais} onChange={(e) => setPriceReais(e.target.value)} />
-      </Field>
-      <Field label="Desconto (R$)">
-        <Input inputMode="decimal" value={discountReais} onChange={(e) => setDiscountReais(e.target.value)} />
-      </Field>
-      <p className="text-xs text-[var(--color-muted-foreground)]">
-        Cobrado: <span className="font-medium">{formatCents(Math.max(finalCents, 0))}</span>
-        {plan.discountCents > 0 && ` (${planDiscountPercent(plan)}% off atualmente salvo)`}
-      </p>
-      <Button size="sm" variant="outline" icon={<Save size={14} />} loading={saving} onClick={handleSave} className="self-start">
-        Salvar
-      </Button>
-    </div>
-  )
-}
-
-function PlatformSettingsForm({ settings, onSaved }: { settings: PlatformSettings; onSaved: () => void }) {
-  const toast = useToast()
-  const [pixKey, setPixKey] = useState(settings.pixKey)
-  const [pixKeyOwnerName, setPixKeyOwnerName] = useState(settings.pixKeyOwnerName)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setPixKey(settings.pixKey)
-    setPixKeyOwnerName(settings.pixKeyOwnerName)
-  }, [settings])
-
-  async function handleSave() {
-    setSaving(true)
-    try {
-      await dataRepository.updatePlatformSettings({ pixKey, pixKeyOwnerName })
-      toast.success('Configurações salvas.')
-      onSaved()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Não foi possível salvar.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="grid sm:grid-cols-2 gap-4 items-end">
-      <Field label="Chave Pix da Hello Inova" hint="Enviada nas mensagens de cobrança por WhatsApp, junto ao botão de pagamento por cartão.">
-        <Input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="CNPJ, e-mail, telefone ou chave aleatória" />
-      </Field>
-      <Field label="Nome do titular da chave Pix">
-        <Input value={pixKeyOwnerName} onChange={(e) => setPixKeyOwnerName(e.target.value)} placeholder="Hello Inova Ltda" />
-      </Field>
-      <Button icon={<Wallet size={16} />} loading={saving} onClick={handleSave} className="self-start">
-        Salvar configurações
-      </Button>
-    </div>
-  )
-}
-
-function PlanCard({ name, features, highlighted }: { name: string; features: string[]; highlighted?: boolean }) {
-  return (
-    <div className={`rounded-xl border p-5 ${highlighted ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)]'}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <CalendarCheck2 size={16} className="text-[var(--color-primary)]" />
-        <h3 className="font-heading font-semibold">{name}</h3>
-      </div>
-      <ul className="flex flex-col gap-1.5 text-sm text-[var(--color-muted-foreground)]">
-        {features.map((f) => (
-          <li key={f}>• {f}</li>
-        ))}
-      </ul>
     </div>
   )
 }
