@@ -73,39 +73,44 @@ export function InstallAppPrompt({ business }: { business: Business }) {
 
   if (dismissed || (!deferredPrompt && !showIOSInstructions)) return null
 
+  // Note on markup: the icon and the message sit in their own flex row, but
+  // the message itself is a plain (non-flex) <span> so its text — including
+  // the <strong> bits — wraps as ordinary prose. Making that span a flex
+  // container too (an earlier version of this component did) turns every
+  // text node between the <strong> tags into its own flex item instead of
+  // one paragraph, which on a narrow phone screen wraps each fragment into
+  // its own cramped column of one word per line.
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-2.5 text-[var(--color-foreground)] text-sm border-b border-[var(--color-border)]"
+      className="flex flex-col gap-2 px-4 sm:px-6 py-2.5 text-[var(--color-foreground)] text-sm border-b border-[var(--color-border)]"
       style={{ background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}
     >
       {deferredPrompt ? (
         <>
-          <span className="flex items-center gap-2">
-            <Download size={16} className="text-[var(--color-primary)] shrink-0" />
-            Instale o painel da {business.displayName} no seu celular para acessar mais rápido.
-          </span>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleInstall}
-              className="inline-flex items-center rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-medium px-3 py-1.5 hover:opacity-90 transition"
-            >
-              Instalar
-            </button>
-            <button onClick={handleDismiss} aria-label="Dispensar" className="p-1.5 rounded-md hover:bg-black/5">
+          <div className="flex items-start gap-2">
+            <Download size={16} className="text-[var(--color-primary)] shrink-0 mt-0.5" />
+            <span className="min-w-0">Instale o painel da {business.displayName} no seu celular para acessar mais rápido.</span>
+            <button onClick={handleDismiss} aria-label="Dispensar" className="ml-auto shrink-0 p-1.5 rounded-md hover:bg-black/5">
               <X size={15} />
             </button>
           </div>
-        </>
-      ) : (
-        <>
-          <span className="flex items-center gap-2">
-            <Share2 size={16} className="text-[var(--color-primary)] shrink-0" />
-            Para instalar este painel no seu iPhone: toque em <strong>Compartilhar</strong> e depois em <strong>"Adicionar à Tela de Início"</strong>.
-          </span>
-          <button onClick={handleDismiss} aria-label="Dispensar" className="p-1.5 rounded-md hover:bg-black/5 shrink-0">
-            <X size={15} />
+          <button
+            onClick={handleInstall}
+            className="self-start inline-flex items-center rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-medium px-3 py-1.5 hover:opacity-90 transition"
+          >
+            Instalar
           </button>
         </>
+      ) : (
+        <div className="flex items-start gap-2">
+          <Share2 size={16} className="text-[var(--color-primary)] shrink-0 mt-0.5" />
+          <span className="min-w-0">
+            Para instalar este painel no seu iPhone: toque em <strong>Compartilhar</strong> e depois em <strong>"Adicionar à Tela de Início"</strong>.
+          </span>
+          <button onClick={handleDismiss} aria-label="Dispensar" className="ml-auto shrink-0 p-1.5 rounded-md hover:bg-black/5">
+            <X size={15} />
+          </button>
+        </div>
       )}
     </div>
   )
