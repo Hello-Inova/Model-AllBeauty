@@ -27,6 +27,7 @@ export const adminRoutes = {
   settings: (slug: string) => `/admin/${slug}/configuracoes`,
   backup: (slug: string) => `/admin/${slug}/backup`,
   subscription: (slug: string) => `/admin/${slug}/assinatura`,
+  profile: (slug: string) => `/admin/${slug}/perfil`,
 }
 
 export const superAdminRoutes = {
@@ -35,6 +36,7 @@ export const superAdminRoutes = {
   onboarding: '/super-admin/nova-empresa',
   plans: '/super-admin/planos',
   settings: '/super-admin/configuracoes',
+  profile: '/super-admin/perfil',
 }
 
 export const legalRoutes = {

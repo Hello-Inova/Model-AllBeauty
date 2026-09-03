@@ -28,6 +28,7 @@ import { TestimonialsAdminPage } from './pages/admin/TestimonialsAdminPage'
 import { SettingsAdminPage } from './pages/admin/SettingsAdminPage'
 import { BackupAdminPage } from './pages/admin/BackupAdminPage'
 import { SubscriptionAdminPage } from './pages/admin/SubscriptionAdminPage'
+import { ProfileAdminPage } from './pages/admin/ProfileAdminPage'
 
 import { TermsPage } from './pages/legal/TermsPage'
 import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage'
@@ -39,6 +40,7 @@ import { SuperAdminDashboardPage } from './pages/superadmin/SuperAdminDashboardP
 import { SuperAdminOnboardingPage } from './pages/superadmin/SuperAdminOnboardingPage'
 import { SuperAdminPlansPage } from './pages/superadmin/SuperAdminPlansPage'
 import { SuperAdminSettingsPage } from './pages/superadmin/SuperAdminSettingsPage'
+import { SuperAdminProfilePage } from './pages/superadmin/SuperAdminProfilePage'
 
 export default function AppRouter() {
   return (
@@ -73,6 +75,7 @@ export default function AppRouter() {
               <Route path="configuracoes" element={<SettingsAdminPage />} />
               <Route path="backup" element={<BackupAdminPage />} />
               <Route path="assinatura" element={<SubscriptionAdminPage />} />
+              <Route path="perfil" element={<ProfileAdminPage />} />
             </Route>
 
             <Route path="/legal/termos-de-uso" element={<TermsPage />} />
@@ -85,6 +88,7 @@ export default function AppRouter() {
               <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />
               <Route path="planos" element={<SuperAdminPlansPage />} />
               <Route path="configuracoes" element={<SuperAdminSettingsPage />} />
+              <Route path="perfil" element={<SuperAdminProfilePage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

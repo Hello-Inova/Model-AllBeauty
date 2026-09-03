@@ -40,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'logout' && req.method === 'POST') return logout(res)
     if (action === 'me' && req.method === 'GET') return await me(req, res)
     if (action === 'change-password' && req.method === 'POST') return await changePassword(req, res)
+    if (action === 'update-email' && req.method === 'POST') return await updateEmail(req, res)
     if (action === 'accept-terms' && req.method === 'POST') return await acceptTerms(req, res)
     res.status(404).json({ error: 'Rota de autenticação não encontrada.' })
   } catch (e) {
@@ -123,6 +124,47 @@ async function acceptTerms(req: VercelRequest, res: VercelResponse) {
     UPDATE admin_users SET terms_accepted_at = now() WHERE id = ${session.sub} RETURNING terms_accepted_at
   `
   res.status(200).json({ termsAcceptedAt: updated.rows[0]?.terms_accepted_at ?? new Date().toISOString() })
+}
+
+async function updateEmail(req: VercelRequest, res: VercelResponse) {
+  const session = await getSession(req)
+  if (!session) throw new ApiError(401, 'Sessão inválida ou expirada.')
+  const { currentPassword, newEmail } = readBody(req)
+  const email = String(newEmail ?? '').trim().toLowerCase()
+  if (!currentPassword || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Informe a senha atual e um e-mail válido.' })
+  }
+  const rows = await sql`SELECT id, password_hash, business_id, role FROM admin_users WHERE id = ${session.sub} LIMIT 1`
+  const admin = rows.rows[0]
+  if (!admin) return res.status(401).json({ error: 'Sessão inválida.' })
+  const ok = await verifyPassword(currentPassword, admin.password_hash)
+  if (!ok) return res.status(400).json({ error: 'Senha atual incorreta.' })
+
+  // Uniqueness scoped like the login lookups: within the same business for a
+  // business admin, or among the super admins (business_id IS NULL) — the DB's
+  // unique index on (business_id, email) doesn't protect the super-admin case
+  // since Postgres treats every NULL business_id as distinct.
+  const dup = admin.business_id
+    ? await sql`SELECT id FROM admin_users WHERE business_id = ${admin.business_id} AND lower(email) = ${email} AND id != ${admin.id} LIMIT 1`
+    : await sql`SELECT id FROM admin_users WHERE business_id IS NULL AND lower(email) = ${email} AND id != ${admin.id} LIMIT 1`
+  if (dup.rows.length > 0) return res.status(400).json({ error: 'Já existe um usuário com este e-mail.' })
+
+  await sql`UPDATE admin_users SET email = ${email} WHERE id = ${admin.id}`
+
+  // The session JWT caches the e-mail (see signSession/getSession) so it has
+  // to be re-issued here — otherwise the change wouldn't take effect until
+  // the next login.
+  const token = await signSession({ sub: admin.id, businessId: session.businessId, role: session.role, email })
+  res.setHeader('Set-Cookie', sessionCookieHeader(token))
+
+  if (session.role === 'super_admin') {
+    return res.status(200).json({ session: { businessSlug: '*', email, role: 'super_admin', termsAcceptedAt: null } })
+  }
+  const biz = await sql`SELECT slug FROM businesses WHERE id = ${session.businessId} LIMIT 1`
+  const termsRow = await sql`SELECT terms_accepted_at FROM admin_users WHERE id = ${admin.id} LIMIT 1`
+  res.status(200).json({
+    session: { businessSlug: biz.rows[0]?.slug ?? '', email, role: session.role, termsAcceptedAt: termsRow.rows[0]?.terms_accepted_at ?? null },
+  })
 }
 
 async function changePassword(req: VercelRequest, res: VercelResponse) {

@@ -12,6 +12,7 @@ import {
   Settings,
   DatabaseBackup,
   CreditCard,
+  UserCircle,
   Menu,
   X,
   ExternalLink,
@@ -42,6 +43,7 @@ export function AdminLayout({ business, children }: { business: Business; childr
     // Empresas isentas não pagam mensalidade — não faz sentido mostrar a
     // página de assinatura para elas.
     ...(business.billingType === 'isento' ? [] : [{ to: adminRoutes.subscription(business.slug), label: 'Assinatura', icon: CreditCard }]),
+    { to: adminRoutes.profile(business.slug), label: 'Perfil', icon: UserCircle },
   ]
 
   function handleLogout() {

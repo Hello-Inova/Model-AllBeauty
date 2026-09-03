@@ -21,6 +21,7 @@ interface AuthContextValue {
   loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<boolean>
   loginSuperAdmin: (email: string, password: string) => Promise<boolean>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  updateEmail: (currentPassword: string, newEmail: string) => Promise<void>
   acceptTerms: () => Promise<void>
   logout: () => Promise<void>
 }
@@ -83,6 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api('change-password', { currentPassword, newPassword })
   }, [])
 
+  const updateEmail = useCallback(async (currentPassword: string, newEmail: string) => {
+    const r = await api<{ session: AdminSession }>('update-email', { currentPassword, newEmail })
+    setSession(r.session)
+  }, [])
+
   const acceptTerms = useCallback(async () => {
     const r = await api<{ termsAcceptedAt: string }>('accept-terms', {})
     setSession((prev) => (prev ? { ...prev, termsAcceptedAt: r.termsAcceptedAt } : prev))
@@ -94,8 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, acceptTerms, logout }),
-    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, acceptTerms, logout],
+    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout }),
+    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
