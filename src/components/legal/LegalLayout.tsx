@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -11,12 +11,21 @@ import type { ReactNode } from 'react'
  * a reader came from.
  */
 export function LegalLayout({ title, updatedAt, children }: { title: string; updatedAt: string; children: ReactNode }) {
+  const navigate = useNavigate()
   return (
     <div className="min-h-screen bg-[var(--color-muted)]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] mb-6">
+        {/* Histórico do navegador, não um link fixo para "/": um admin sem
+            os termos aceitos ainda chega aqui a partir do gate de aceite
+            (TermsGate) — "Voltar" precisa devolvê-lo exatamente para lá, e
+            não para o site público, ou pareceria que ele driblou o aceite. */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] mb-6"
+        >
           <ArrowLeft size={15} /> Voltar
-        </Link>
+        </button>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-6 sm:p-10">
           <div className="flex items-center gap-2.5 mb-1.5">
             <FileText size={20} className="text-[var(--color-primary)]" />

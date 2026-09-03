@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
 import { Button, Checkbox } from '../Form'
 import { useAuth } from '../../contexts/AuthContext'
@@ -45,15 +46,20 @@ export function TermsGate({ children }: { children: ReactNode }) {
           Para usar o painel administrativo, leia e aceite os documentos abaixo. Isso é exigido apenas no seu primeiro acesso a esta conta.
         </p>
         <div className="flex flex-col gap-1.5 text-sm">
-          <a href={legalRoutes.terms} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] hover:underline">
+          {/* Navegação na MESMA aba (não target="_blank") de propósito: assim
+              o botão "Voltar" da página legal usa o histórico do navegador e
+              retorna para cá, mantendo o gate ativo enquanto não houver
+              aceite — em vez de abrir uma aba nova cujo "Voltar" cairia na
+              home pública, dando a impressão de acesso liberado. */}
+          <Link to={legalRoutes.terms} className="text-[var(--color-primary)] hover:underline">
             Termos de Uso →
-          </a>
-          <a href={legalRoutes.privacy} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] hover:underline">
+          </Link>
+          <Link to={legalRoutes.privacy} className="text-[var(--color-primary)] hover:underline">
             Política de Privacidade (LGPD) →
-          </a>
-          <a href={legalRoutes.cookies} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] hover:underline">
+          </Link>
+          <Link to={legalRoutes.cookies} className="text-[var(--color-primary)] hover:underline">
             Política de Cookies →
-          </a>
+          </Link>
         </div>
         <Checkbox
           label="Li e aceito os Termos de Uso, a Política de Privacidade (LGPD) e a Política de Cookies."
