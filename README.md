@@ -150,6 +150,16 @@ O Asaas avisa o sistema sempre que um pagamento é confirmado, recusado ou fica 
 - **Trocar o plano de cada empresa** (mensal/semestral/anual) e o **tipo de cobrança**: `padrao` (cobra normalmente pelo plano) ou `isento` (empresa cortesia, nunca cobrada — some o aviso de vencimento e a página de assinatura do painel dela).
 - **Gestão Financeira** (`/super-admin/financeiro`): painel somente-leitura com a receita da plataforma — MRR estimado (receita mensal recorrente das empresas ativas), total confirmado no mês e histórico, valores em aberto e atrasados, contagem de empresas por status de assinatura, gráfico dos últimos 12 meses e a lista completa de transações (filtrável por status e por empresa), alimentada pelas cobranças já registradas em `billing_transactions` via webhook do Asaas.
 
+### Instalar o painel administrativo no celular ("Adicionar à Tela de Início")
+
+O painel administrativo de cada empresa (`/admin/<slug>`) é uma PWA instalável, com um aviso que sugere adicioná-lo à tela de início quando aberto pelo navegador do celular — com o nome e a logo **da própria empresa**, não da plataforma:
+
+- **Android/Chrome/Edge**: aparece uma faixa com o botão **"Instalar"**, que abre o prompt nativo do navegador.
+- **iOS/Safari**: a Apple não expõe esse prompt automático para nenhum site — a faixa mostra o passo a passo manual (**Compartilhar → "Adicionar à Tela de Início"**).
+- O aviso não aparece em desktop, some sozinho se o painel já estiver instalado, e quem dispensar (✕) só volta a vê-lo depois de 14 dias.
+
+Tecnicamente, isso funciona trocando dinamicamente a tag `<link rel="manifest">` da página para `GET /api/manifest?slug=<slug>` (`api/manifest.ts`) assim que o painel de uma empresa é aberto — um manifesto gerado na hora, com o nome e a logo daquela empresa, servido separadamente do `public/manifest.webmanifest` estático usado pelo site público. Ver `src/utils/pwa.ts` e `src/components/admin/InstallAppPrompt.tsx`.
+
 ### Termos de uso, privacidade e cookies
 
 No primeiro login de cada administrador de empresa, o sistema exige a aceitação dos **Termos de Uso**, da **Política de Privacidade (LGPD)** e da **Política de Cookies** antes de liberar o acesso ao painel (`src/components/admin/TermsGate.tsx`) — o aceite fica registrado com data/hora em `admin_users.terms_accepted_at`. O conteúdo desses documentos está em `src/pages/legal/` e também é acessível publicamente em `/legal/termos-de-uso`, `/legal/privacidade` e `/legal/cookies`. **Esse conteúdo foi gerado com apoio de IA com base na LGPD (Lei 13.709/2018), no Marco Civil da Internet (Lei 12.965/2014) e no Código de Defesa do Consumidor — recomenda-se revisão por um advogado antes do uso em produção**, especialmente se o negócio, os fornecedores (Asaas, Vercel) ou a forma de cobrança mudarem.
@@ -230,6 +240,7 @@ api/
 ├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos, planos, configurações da plataforma, relatório financeiro etc.
 ├── billing/[...action].ts  Assinar/atualizar cartão, consultar status de cobrança de uma empresa
 ├── webhooks/asaas.ts  Recebe confirmações de pagamento do Asaas e atualiza o status de assinatura
+├── manifest.ts        Web App Manifest dinâmico do painel administrativo, com a marca de cada empresa
 └── upload.ts         Upload e remoção de imagens no Vercel Blob
 
 db/

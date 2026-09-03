@@ -23,6 +23,7 @@ import { adminRoutes, publicRoutes } from '../utils/routes'
 import { useAuth } from '../contexts/AuthContext'
 import { SmartImage } from '../components/SmartImage'
 import { ExpirationBanner } from '../components/admin/ExpirationBanner'
+import { InstallAppPrompt } from '../components/admin/InstallAppPrompt'
 
 export function AdminLayout({ business, children }: { business: Business; children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -101,6 +102,7 @@ export function AdminLayout({ business, children }: { business: Business; childr
 
       <div className="flex-1 min-w-0 flex flex-col">
         <ExpirationBanner business={business} />
+        <InstallAppPrompt business={business} />
         <header className="lg:hidden flex items-center justify-between px-4 h-14 bg-[var(--color-card)] border-b border-[var(--color-border)]">
           <span className="font-heading font-semibold text-sm">{business.displayName}</span>
           <button onClick={() => setOpen(true)} aria-label="Abrir menu">
