@@ -18,8 +18,8 @@ interface AdminSession {
 interface AuthContextValue {
   session: AdminSession | null
   loading: boolean
-  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<boolean>
-  loginSuperAdmin: (email: string, password: string) => Promise<boolean>
+  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  loginSuperAdmin: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   updateEmail: (currentPassword: string, newEmail: string) => Promise<void>
   acceptTerms: () => Promise<void>
@@ -64,9 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const r = await api<{ session: AdminSession }>('login-admin', { businessSlug, email, password })
       setSession(r.session)
-      return true
-    } catch {
-      return false
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : undefined }
     }
   }, [])
 
@@ -74,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const r = await api<{ session: AdminSession }>('login-super', { email, password })
       setSession(r.session)
-      return true
-    } catch {
-      return false
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : undefined }
     }
   }, [])
 

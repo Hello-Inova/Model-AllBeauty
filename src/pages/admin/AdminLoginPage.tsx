@@ -39,10 +39,10 @@ function AdminLoginInner() {
     if (!business) return
     setSubmitting(true)
     setError(null)
-    const ok = await loginBusinessAdmin(business.slug, email || business.email, password)
+    const result = await loginBusinessAdmin(business.slug, email || business.email, password)
     setSubmitting(false)
-    if (ok) navigate(adminRoutes.dashboard(business.slug))
-    else setError('E-mail ou senha inválidos.')
+    if (result.ok) navigate(adminRoutes.dashboard(business.slug))
+    else setError(result.error ?? 'E-mail ou senha inválidos.')
   }
 
   return (

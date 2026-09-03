@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 import type { VercelRequest } from '@vercel/node'
-import { ApiError } from './db.js'
+import { ApiError, sql } from './db.js'
 
 // Minimal, dependency-free cookie helpers (avoids pinning to a specific
 // version of the `cookie` package's API, which has changed shape across
@@ -128,4 +128,56 @@ export function requireBusinessAccess(session: SessionPayload, businessId: strin
   if (session.role === 'super_admin') return
   if (session.businessId === businessId) return
   throw new ApiError(403, 'Você não tem acesso a esta empresa.')
+}
+
+// ---------------------------------------------------------------------------
+// Limite de tentativas de login — 3 por dia (fuso de Brasília), tanto para o
+// login de empresas quanto para o Super Admin. `scope` é construído pelo
+// chamador a partir dos dados BRUTOS do formulário (slug/e-mail digitados),
+// antes de qualquer consulta a businesses/admin_users — assim uma tentativa
+// contra um e-mail ou empresa inexistente também é contabilizada, em vez de
+// dar de graça um número ilimitado de tentativas de "descoberta".
+// ---------------------------------------------------------------------------
+
+export const LOGIN_ATTEMPT_LIMIT = 3
+export const LOGIN_LOCKOUT_MESSAGE = 'Você atingiu o limite de 3 tentativas de login hoje. Tente novamente amanhã.'
+
+/** true se este scope já esgotou as tentativas do dia (fuso de Brasília). */
+export async function isLoginLocked(scope: string): Promise<boolean> {
+  const rows = await sql`
+    SELECT count FROM login_attempts
+    WHERE scope = ${scope} AND attempt_date = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+    LIMIT 1
+  `
+  const count = rows.rows[0]?.count ?? 0
+  return count >= LOGIN_ATTEMPT_LIMIT
+}
+
+/** Registra uma tentativa falha e retorna quantas tentativas já foram usadas hoje. */
+export async function registerFailedLoginAttempt(scope: string): Promise<number> {
+  const rows = await sql`
+    INSERT INTO login_attempts (scope, attempt_date, count)
+    VALUES (${scope}, (now() AT TIME ZONE 'America/Sao_Paulo')::date, 1)
+    ON CONFLICT (scope) DO UPDATE SET
+      count = CASE
+        WHEN login_attempts.attempt_date = (now() AT TIME ZONE 'America/Sao_Paulo')::date THEN login_attempts.count + 1
+        ELSE 1
+      END,
+      attempt_date = (now() AT TIME ZONE 'America/Sao_Paulo')::date,
+      updated_at = now()
+    RETURNING count
+  `
+  return rows.rows[0]?.count ?? LOGIN_ATTEMPT_LIMIT
+}
+
+/** Limpa o contador após um login bem-sucedido. */
+export async function clearLoginAttempts(scope: string): Promise<void> {
+  await sql`DELETE FROM login_attempts WHERE scope = ${scope}`
+}
+
+/** Mensagem de credenciais inválidas, com aviso de tentativas restantes quando fizer sentido. */
+export function invalidCredentialsMessage(attemptsUsedToday: number): string {
+  const remaining = LOGIN_ATTEMPT_LIMIT - attemptsUsedToday
+  if (remaining <= 0) return LOGIN_LOCKOUT_MESSAGE
+  return `E-mail ou senha inválidos. Você tem mais ${remaining} tentativa${remaining === 1 ? '' : 's'} hoje.`
 }

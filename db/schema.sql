@@ -92,6 +92,19 @@ CREATE INDEX IF NOT EXISTS admin_users_business_id_idx ON admin_users (business_
 -- gate bloqueando o acesso até o aceite, no primeiro login de cada usuário.
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
 
+-- Limite de tentativas de login (3 por dia, fuso de Brasília) — protege tanto
+-- o login de empresas quanto o do Super Admin contra força bruta. `scope`
+-- identifica a combinação sendo tentada ANTES de qualquer consulta a
+-- businesses/admin_users (ex: 'admin:<slug>:<email>' ou 'super:<email>'), de
+-- propósito, para bloquear tentativas mesmo contra e-mails/empresas
+-- inexistentes. Ver api/_lib/auth.ts.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  scope         text PRIMARY KEY,
+  attempt_date  date NOT NULL,
+  count         integer NOT NULL DEFAULT 0,
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---- Categorias -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS categories (
   id           text PRIMARY KEY,

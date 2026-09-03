@@ -19,10 +19,10 @@ export function SuperAdminLoginPage() {
     e.preventDefault()
     setSubmitting(true)
     setError(null)
-    const ok = await loginSuperAdmin(email, password)
+    const result = await loginSuperAdmin(email, password)
     setSubmitting(false)
-    if (ok) navigate(superAdminRoutes.home)
-    else setError('Credenciais inválidas.')
+    if (result.ok) navigate(superAdminRoutes.home)
+    else setError(result.error ?? 'Credenciais inválidas.')
   }
 
   return (

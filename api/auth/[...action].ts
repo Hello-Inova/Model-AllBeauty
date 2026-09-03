@@ -1,6 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { sql, ApiError } from '../_lib/db.js'
-import { getSession, hashPassword, verifyPassword, signSession, sessionCookieHeader, clearSessionCookieHeader } from '../_lib/auth.js'
+import {
+  getSession,
+  hashPassword,
+  verifyPassword,
+  signSession,
+  sessionCookieHeader,
+  clearSessionCookieHeader,
+  isLoginLocked,
+  registerFailedLoginAttempt,
+  clearLoginAttempts,
+  invalidCredentialsMessage,
+  LOGIN_LOCKOUT_MESSAGE,
+} from '../_lib/auth.js'
 
 // Consolidated auth endpoint — every action Vercel would otherwise need a
 // separate function file for lives here, keeping the deployment's function
@@ -55,8 +67,18 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   if (!businessSlug || !email || !password) {
     return res.status(400).json({ error: 'Informe empresa, e-mail e senha.' })
   }
+
+  // Escopo construído a partir do que foi digitado, ANTES de qualquer
+  // consulta — assim uma empresa/e-mail inexistente também é limitada,
+  // em vez de dar tentativas ilimitadas para "descobrir" contas válidas.
+  const scope = `admin:${String(businessSlug).toLowerCase()}:${String(email).toLowerCase()}`
+  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_LOCKOUT_MESSAGE })
+
   const biz = await sql`SELECT id, slug FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
-  if (biz.rows.length === 0) return res.status(401).json({ error: 'E-mail ou senha inválidos.' })
+  if (biz.rows.length === 0) {
+    const count = await registerFailedLoginAttempt(scope)
+    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+  }
   const business = biz.rows[0]
 
   const admins = await sql`
@@ -64,9 +86,16 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
     WHERE business_id = ${business.id} AND lower(email) = lower(${email}) LIMIT 1
   `
   const admin = admins.rows[0]
-  if (!admin || !admin.active) return res.status(401).json({ error: 'E-mail ou senha inválidos.' })
+  if (!admin || !admin.active) {
+    const count = await registerFailedLoginAttempt(scope)
+    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+  }
   const ok = await verifyPassword(password, admin.password_hash)
-  if (!ok) return res.status(401).json({ error: 'E-mail ou senha inválidos.' })
+  if (!ok) {
+    const count = await registerFailedLoginAttempt(scope)
+    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+  }
+  await clearLoginAttempts(scope)
 
   const token = await signSession({ sub: admin.id, businessId: business.id, role: admin.role, email: admin.email })
   res.setHeader('Set-Cookie', sessionCookieHeader(token))
@@ -79,14 +108,24 @@ async function loginSuper(req: VercelRequest, res: VercelResponse) {
   const { email, password } = readBody(req)
   if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' })
 
+  const scope = `super:${String(email).toLowerCase()}`
+  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_LOCKOUT_MESSAGE })
+
   const admins = await sql`
     SELECT id, email, password_hash, active FROM admin_users
     WHERE business_id IS NULL AND role = 'super_admin' AND lower(email) = lower(${email}) LIMIT 1
   `
   const admin = admins.rows[0]
-  if (!admin || !admin.active) return res.status(401).json({ error: 'Credenciais inválidas.' })
+  if (!admin || !admin.active) {
+    const count = await registerFailedLoginAttempt(scope)
+    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+  }
   const ok = await verifyPassword(password, admin.password_hash)
-  if (!ok) return res.status(401).json({ error: 'Credenciais inválidas.' })
+  if (!ok) {
+    const count = await registerFailedLoginAttempt(scope)
+    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+  }
+  await clearLoginAttempts(scope)
 
   const token = await signSession({ sub: admin.id, businessId: null, role: 'super_admin', email: admin.email })
   res.setHeader('Set-Cookie', sessionCookieHeader(token))
