@@ -5,6 +5,7 @@ import {
   rowToBusiness, businessToRow,
   rowToCategory, rowToService, rowToProfessional, rowToCustomer,
   rowToAppointment, rowToBlockedDate, rowToGalleryImage, rowToTestimonial, rowToBanner,
+  rowToPlan, rowToPlatformSettings,
 } from '../_lib/mappers.js'
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 
@@ -71,6 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (resource === 'gallery') return await gallery(req, res)
     if (resource === 'testimonials') return await testimonials(req, res)
     if (resource === 'banners') return await banners(req, res)
+    if (resource === 'plans') return await plans(req, res)
+    if (resource === 'platform-settings') return await platformSettings(req, res)
 
     res.status(404).json({ error: 'Recurso não encontrado.' })
   } catch (e) {
@@ -264,7 +267,17 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
   if (method === 'PATCH') {
     const existing = await sql`SELECT * FROM businesses WHERE id = ${id}`
     if (existing.rows.length === 0) notFound('Empresa')
-    const merged = { ...rowToBusiness(existing.rows[0]), ...readBody(req) }
+    const existingBusiness = rowToBusiness(existing.rows[0])
+    const merged = { ...existingBusiness, ...readBody(req) }
+    // billing_type/billing_plan só podem ser alterados pelo super admin (ver
+    // requisito de "isento" x "padrão" e o plano de cada empresa). Qualquer
+    // outro campo de assinatura (subscription_status, plan_expires_at,
+    // asaas_*, card_*) nem entra no objeto retornado por businessToRow — só
+    // api/billing/[...action].ts e api/webhooks/asaas.ts escrevem neles.
+    if (session.role !== 'super_admin') {
+      merged.billingType = existingBusiness.billingType
+      merged.billingPlan = existingBusiness.billingPlan
+    }
     const row = businessToRow(merged)
     await sql`
       UPDATE businesses SET
@@ -274,6 +287,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
         address = ${row.address}, city = ${row.city}, state = ${row.state}, country = ${row.country}, zip_code = ${row.zip_code}, currency = ${row.currency}, timezone = ${row.timezone},
         primary_color = ${row.primary_color}, secondary_color = ${row.secondary_color}, accent_color = ${row.accent_color}, background_color = ${row.background_color}, foreground_color = ${row.foreground_color}, theme = ${row.theme},
         active = ${row.active}, demo = ${row.demo}, plan = ${row.plan}, working_hours = ${row.working_hours}, booking_policies = ${row.booking_policies},
+        billing_type = ${row.billing_type}, billing_plan = ${row.billing_plan},
         updated_at = now()
       WHERE id = ${id}
     `
@@ -753,4 +767,57 @@ async function banners(req: VercelRequest, res: VercelResponse) {
     }
   }
   res.status(404).json({ error: 'Rota de banners não encontrada.' })
+}
+
+// ---- Planos de assinatura (catálogo global) --------------------------------
+// GET é público (a página de Assinatura da empresa e, futuramente, uma
+// página de preços, precisam mostrar valores sem exigir sessão). Qualquer
+// escrita exige super admin.
+async function plans(req: VercelRequest, res: VercelResponse) {
+  const method = req.method
+  const id = strParam(req, 'id')
+
+  if (method === 'GET') {
+    const { rows } = await sql`SELECT * FROM plans ORDER BY months ASC`
+    return res.status(200).json(rows.map(rowToPlan))
+  }
+  if (method === 'PATCH' && id) {
+    const session = await requireSession(req)
+    requireSuperAdmin(session)
+    const existing = await sql`SELECT * FROM plans WHERE id = ${id}`
+    if (existing.rows.length === 0) notFound('Plano')
+    const merged = { ...rowToPlan(existing.rows[0]), ...readBody(req) }
+    await sql`
+      UPDATE plans SET name = ${merged.name}, price_cents = ${merged.priceCents}, discount_cents = ${merged.discountCents}, active = ${merged.active}, updated_at = now()
+      WHERE id = ${id}
+    `
+    const updated = await sql`SELECT * FROM plans WHERE id = ${id}`
+    return res.status(200).json(rowToPlan(updated.rows[0]))
+  }
+  res.status(404).json({ error: 'Rota de planos não encontrada.' })
+}
+
+// ---- Configurações da plataforma (Hello Inova) -----------------------------
+// Só o super admin lê ou escreve — usado para montar a mensagem de cobrança
+// via WhatsApp no grid de empresas (chave Pix de pagamento alternativo).
+async function platformSettings(req: VercelRequest, res: VercelResponse) {
+  const method = req.method
+  const session = await requireSession(req)
+  requireSuperAdmin(session)
+
+  if (method === 'GET') {
+    const { rows } = await sql`SELECT * FROM platform_settings WHERE id = 'default' LIMIT 1`
+    return res.status(200).json(rowToPlatformSettings(rows[0] ?? {}))
+  }
+  if (method === 'PATCH') {
+    const body = readBody(req)
+    await sql`
+      UPDATE platform_settings SET
+        pix_key = ${body.pixKey ?? ''}, pix_key_owner_name = ${body.pixKeyOwnerName ?? ''}, updated_at = now()
+      WHERE id = 'default'
+    `
+    const { rows } = await sql`SELECT * FROM platform_settings WHERE id = 'default' LIMIT 1`
+    return res.status(200).json(rowToPlatformSettings(rows[0] ?? {}))
+  }
+  res.status(404).json({ error: 'Rota de configurações não encontrada.' })
 }

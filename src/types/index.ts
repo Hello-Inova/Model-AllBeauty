@@ -85,8 +85,55 @@ export interface Business {
   plan: PlanId
   workingHours: DaySchedule[]
   bookingPolicies: BookingPolicies
+  // ---- Assinatura / cobrança recorrente (gateway Asaas) --------------------
+  // Não confundir com `plan` acima (nível de recursos) — isto é o ciclo de
+  // cobrança da mensalidade da plataforma em si.
+  billingType: BillingType
+  billingPlan: BillingPlanId
+  subscriptionStatus: SubscriptionStatus
+  planExpiresAt?: string
+  asaasCustomerId?: string
+  asaasSubscriptionId?: string
+  cardLast4?: string
+  cardBrand?: string
   createdAt: string
   updatedAt: string
+}
+
+/** 'padrao' é cobrada normalmente pelo billingPlan; 'isento' nunca é cobrada. */
+export type BillingType = 'padrao' | 'isento'
+
+export type BillingPlanId = 'mensal' | 'semestral' | 'anual'
+
+export type SubscriptionStatus = 'sem_assinatura' | 'ativa' | 'atrasada' | 'cancelada'
+
+/** Catálogo de planos de assinatura da plataforma (editável pelo Super Admin). */
+export interface BillingPlanDef {
+  id: BillingPlanId
+  name: string
+  cycle: 'MONTHLY' | 'SEMIANNUALLY' | 'YEARLY'
+  months: number
+  priceCents: number
+  discountCents: number
+  active: boolean
+}
+
+export type BillingTransactionStatus = 'pending' | 'confirmed' | 'received' | 'overdue' | 'refused' | 'refunded'
+
+export interface BillingTransaction {
+  id: ID
+  businessId: ID
+  valueCents: number
+  status: BillingTransactionStatus
+  dueDate?: string
+  paidAt?: string
+  createdAt: string
+}
+
+/** Configurações globais da plataforma Hello Inova (dado não-sensível). */
+export interface PlatformSettings {
+  pixKey: string
+  pixKeyOwnerName: string
 }
 
 export interface Category {

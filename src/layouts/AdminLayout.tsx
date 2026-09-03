@@ -11,6 +11,7 @@ import {
   Quote,
   Settings,
   DatabaseBackup,
+  CreditCard,
   Menu,
   X,
   ExternalLink,
@@ -20,6 +21,7 @@ import type { Business } from '../types'
 import { adminRoutes, publicRoutes } from '../utils/routes'
 import { useAuth } from '../contexts/AuthContext'
 import { SmartImage } from '../components/SmartImage'
+import { ExpirationBanner } from '../components/admin/ExpirationBanner'
 
 export function AdminLayout({ business, children }: { business: Business; children: ReactNode }) {
   const [open, setOpen] = useState(false)
@@ -37,6 +39,9 @@ export function AdminLayout({ business, children }: { business: Business; childr
     { to: adminRoutes.testimonials(business.slug), label: 'Depoimentos', icon: Quote },
     { to: adminRoutes.settings(business.slug), label: 'Configurações', icon: Settings },
     { to: adminRoutes.backup(business.slug), label: 'Backup', icon: DatabaseBackup },
+    // Empresas isentas não pagam mensalidade — não faz sentido mostrar a
+    // página de assinatura para elas.
+    ...(business.billingType === 'isento' ? [] : [{ to: adminRoutes.subscription(business.slug), label: 'Assinatura', icon: CreditCard }]),
   ]
 
   function handleLogout() {
@@ -93,6 +98,7 @@ export function AdminLayout({ business, children }: { business: Business; childr
       )}
 
       <div className="flex-1 min-w-0 flex flex-col">
+        <ExpirationBanner business={business} />
         <header className="lg:hidden flex items-center justify-between px-4 h-14 bg-[var(--color-card)] border-b border-[var(--color-border)]">
           <span className="font-heading font-semibold text-sm">{business.displayName}</span>
           <button onClick={() => setOpen(true)} aria-label="Abrir menu">

@@ -124,6 +124,12 @@ export function SuperAdminOnboardingPage() {
         active: true,
         demo: false,
         plan,
+        // Toda empresa nova entra no plano mensal, cobrança padrão, ainda
+        // sem assinatura ativa no Asaas — o Super Admin ajusta o tipo de
+        // plano/cobrança depois, e a própria empresa assina em Assinatura.
+        billingType: 'padrao',
+        billingPlan: 'mensal',
+        subscriptionStatus: 'sem_assinatura',
         workingHours,
         bookingPolicies: {
           minAdvanceMinutes: 60,

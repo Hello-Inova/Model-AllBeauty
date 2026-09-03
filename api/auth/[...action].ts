@@ -40,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'logout' && req.method === 'POST') return logout(res)
     if (action === 'me' && req.method === 'GET') return await me(req, res)
     if (action === 'change-password' && req.method === 'POST') return await changePassword(req, res)
+    if (action === 'accept-terms' && req.method === 'POST') return await acceptTerms(req, res)
     res.status(404).json({ error: 'Rota de autenticação não encontrada.' })
   } catch (e) {
     if (e instanceof ApiError) return res.status(e.status).json({ error: e.message })
@@ -58,7 +59,7 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   const business = biz.rows[0]
 
   const admins = await sql`
-    SELECT id, email, password_hash, role, active FROM admin_users
+    SELECT id, email, password_hash, role, active, terms_accepted_at FROM admin_users
     WHERE business_id = ${business.id} AND lower(email) = lower(${email}) LIMIT 1
   `
   const admin = admins.rows[0]
@@ -68,7 +69,9 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
 
   const token = await signSession({ sub: admin.id, businessId: business.id, role: admin.role, email: admin.email })
   res.setHeader('Set-Cookie', sessionCookieHeader(token))
-  res.status(200).json({ session: { businessSlug: business.slug, email: admin.email, role: admin.role } })
+  res.status(200).json({
+    session: { businessSlug: business.slug, email: admin.email, role: admin.role, termsAcceptedAt: admin.terms_accepted_at ?? null },
+  })
 }
 
 async function loginSuper(req: VercelRequest, res: VercelResponse) {
@@ -86,7 +89,7 @@ async function loginSuper(req: VercelRequest, res: VercelResponse) {
 
   const token = await signSession({ sub: admin.id, businessId: null, role: 'super_admin', email: admin.email })
   res.setHeader('Set-Cookie', sessionCookieHeader(token))
-  res.status(200).json({ session: { businessSlug: '*', email: admin.email, role: 'super_admin' } })
+  res.status(200).json({ session: { businessSlug: '*', email: admin.email, role: 'super_admin', termsAcceptedAt: null } })
 }
 
 function logout(res: VercelResponse) {
@@ -98,11 +101,28 @@ async function me(req: VercelRequest, res: VercelResponse) {
   const session = await getSession(req)
   if (!session) return res.status(200).json({ session: null })
   if (session.role === 'super_admin') {
-    return res.status(200).json({ session: { businessSlug: '*', email: session.email, role: 'super_admin' } })
+    return res.status(200).json({ session: { businessSlug: '*', email: session.email, role: 'super_admin', termsAcceptedAt: null } })
   }
   const biz = await sql`SELECT slug FROM businesses WHERE id = ${session.businessId} LIMIT 1`
   if (biz.rows.length === 0) return res.status(200).json({ session: null })
-  res.status(200).json({ session: { businessSlug: biz.rows[0].slug, email: session.email, role: session.role } })
+  const admin = await sql`SELECT terms_accepted_at FROM admin_users WHERE id = ${session.sub} LIMIT 1`
+  res.status(200).json({
+    session: {
+      businessSlug: biz.rows[0].slug,
+      email: session.email,
+      role: session.role,
+      termsAcceptedAt: admin.rows[0]?.terms_accepted_at ?? null,
+    },
+  })
+}
+
+async function acceptTerms(req: VercelRequest, res: VercelResponse) {
+  const session = await getSession(req)
+  if (!session) throw new ApiError(401, 'Sessão inválida ou expirada.')
+  const updated = await sql`
+    UPDATE admin_users SET terms_accepted_at = now() WHERE id = ${session.sub} RETURNING terms_accepted_at
+  `
+  res.status(200).json({ termsAcceptedAt: updated.rows[0]?.terms_accepted_at ?? new Date().toISOString() })
 }
 
 async function changePassword(req: VercelRequest, res: VercelResponse) {

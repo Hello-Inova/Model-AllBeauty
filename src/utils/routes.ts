@@ -26,10 +26,17 @@ export const adminRoutes = {
   testimonials: (slug: string) => `/admin/${slug}/depoimentos`,
   settings: (slug: string) => `/admin/${slug}/configuracoes`,
   backup: (slug: string) => `/admin/${slug}/backup`,
+  subscription: (slug: string) => `/admin/${slug}/assinatura`,
 }
 
 export const superAdminRoutes = {
   login: '/super-admin/login',
   home: '/super-admin',
   onboarding: '/super-admin/nova-empresa',
+}
+
+export const legalRoutes = {
+  terms: '/legal/termos-de-uso',
+  privacy: '/legal/privacidade',
+  cookies: '/legal/cookies',
 }

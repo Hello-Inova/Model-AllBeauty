@@ -11,6 +11,8 @@ interface AdminSession {
   businessSlug: string
   email: string
   role: 'owner' | 'manager' | 'staff' | 'super_admin'
+  /** null = este login ainda não aceitou os Termos de Uso/LGPD/Cookies. */
+  termsAcceptedAt: string | null
 }
 
 interface AuthContextValue {
@@ -19,6 +21,7 @@ interface AuthContextValue {
   loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<boolean>
   loginSuperAdmin: (email: string, password: string) => Promise<boolean>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
+  acceptTerms: () => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -80,14 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api('change-password', { currentPassword, newPassword })
   }, [])
 
+  const acceptTerms = useCallback(async () => {
+    const r = await api<{ termsAcceptedAt: string }>('accept-terms', {})
+    setSession((prev) => (prev ? { ...prev, termsAcceptedAt: r.termsAcceptedAt } : prev))
+  }, [])
+
   const logout = useCallback(async () => {
     await api('logout', {}).catch(() => {})
     setSession(null)
   }, [])
 
   const value = useMemo(
-    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, logout }),
-    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, logout],
+    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, acceptTerms, logout }),
+    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, acceptTerms, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

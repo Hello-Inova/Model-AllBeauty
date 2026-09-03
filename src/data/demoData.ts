@@ -151,6 +151,9 @@ export function buildDemoBackup(): BusinessBackup {
     active: true,
     demo: true,
     plan: 'profissional',
+    billingType: 'isento',
+    billingPlan: 'mensal',
+    subscriptionStatus: 'sem_assinatura',
     workingHours: businessHours,
     bookingPolicies: {
       minAdvanceMinutes: 60,

@@ -45,6 +45,14 @@ export function rowToBusiness(r: any) {
     plan: r.plan,
     workingHours: r.working_hours ?? [],
     bookingPolicies: r.booking_policies ?? {},
+    billingType: r.billing_type,
+    billingPlan: r.billing_plan,
+    subscriptionStatus: r.subscription_status,
+    planExpiresAt: r.plan_expires_at ?? undefined,
+    asaasCustomerId: r.asaas_customer_id ?? undefined,
+    asaasSubscriptionId: r.asaas_subscription_id ?? undefined,
+    cardLast4: r.card_last4 ?? undefined,
+    cardBrand: r.card_brand ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -87,6 +95,43 @@ export function businessToRow(b: any) {
     plan: b.plan,
     working_hours: JSON.stringify(b.workingHours ?? []),
     booking_policies: JSON.stringify(b.bookingPolicies ?? {}),
+    // Só billing_type/billing_plan aqui — os demais campos de assinatura
+    // (subscription_status, plan_expires_at, asaas_*, card_*) são escritos
+    // exclusivamente por api/billing/[...action].ts e api/webhooks/asaas.ts
+    // via SQL direto, nunca através deste merge genérico.
+    billing_type: b.billingType,
+    billing_plan: b.billingPlan,
+  }
+}
+
+export function rowToPlan(r: any) {
+  return {
+    id: r.id,
+    name: r.name,
+    cycle: r.cycle,
+    months: r.months,
+    priceCents: r.price_cents,
+    discountCents: r.discount_cents,
+    active: r.active,
+  }
+}
+
+export function rowToBillingTransaction(r: any) {
+  return {
+    id: r.id,
+    businessId: r.business_id,
+    valueCents: r.value_cents,
+    status: r.status,
+    dueDate: r.due_date ?? undefined,
+    paidAt: r.paid_at ?? undefined,
+    createdAt: r.created_at,
+  }
+}
+
+export function rowToPlatformSettings(r: any) {
+  return {
+    pixKey: r.pix_key ?? '',
+    pixKeyOwnerName: r.pix_key_owner_name ?? '',
   }
 }
 

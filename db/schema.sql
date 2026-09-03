@@ -52,6 +52,21 @@ CREATE TABLE IF NOT EXISTS businesses (
   plan               text NOT NULL DEFAULT 'basico',
   working_hours      jsonb NOT NULL DEFAULT '[]',
   booking_policies   jsonb NOT NULL DEFAULT '{}',
+  -- ---- Assinatura / cobrança recorrente (gateway Asaas) --------------------
+  -- billing_type: 'padrao' cobra pelo plano abaixo; 'isento' nunca é cobrada
+  -- e não deve exibir página de assinatura nem alerta de vencimento.
+  billing_type           text NOT NULL DEFAULT 'padrao',
+  -- billing_plan: referencia plans.id — 'mensal' | 'semestral' | 'anual'.
+  billing_plan            text NOT NULL DEFAULT 'mensal',
+  -- subscription_status: sem_assinatura | ativa | atrasada | cancelada.
+  -- Escrito apenas pelo backend de billing e pelo webhook do Asaas — nunca
+  -- pelo PATCH genérico de empresas (ver api/data/[...path].ts).
+  subscription_status     text NOT NULL DEFAULT 'sem_assinatura',
+  plan_expires_at         timestamptz,
+  asaas_customer_id       text,
+  asaas_subscription_id   text,
+  card_last4              text,
+  card_brand              text,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now()
 );
@@ -72,6 +87,10 @@ CREATE TABLE IF NOT EXISTS admin_users (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS admin_users_business_email_idx ON admin_users (business_id, email);
 CREATE INDEX IF NOT EXISTS admin_users_business_id_idx ON admin_users (business_id);
+-- Data em que este login aceitou os Termos de Uso, a Política de Privacidade
+-- (LGPD) e a Política de Cookies. NULL = ainda não aceitou; o painel exibe um
+-- gate bloqueando o acesso até o aceite, no primeiro login de cada usuário.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
 
 -- ---- Categorias -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS categories (
@@ -211,3 +230,53 @@ CREATE TABLE IF NOT EXISTS banners (
   "order"      integer NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS banners_business_id_idx ON banners (business_id);
+
+-- ---- Planos de assinatura (catálogo global, editável pelo Super Admin) -----
+-- id = 'mensal' | 'semestral' | 'anual'. cycle é o valor aceito pelo Asaas em
+-- POST /v3/subscriptions (MONTHLY | SEMIANNUALLY | YEARLY). O preço final
+-- cobrado é sempre price_cents - discount_cents (calculado na hora, nunca
+-- guardado, para nunca ficar dessincronizado).
+CREATE TABLE IF NOT EXISTS plans (
+  id              text PRIMARY KEY,
+  name            text NOT NULL,
+  cycle           text NOT NULL,
+  months          integer NOT NULL,
+  price_cents     integer NOT NULL DEFAULT 0,
+  discount_cents  integer NOT NULL DEFAULT 0,
+  active          boolean NOT NULL DEFAULT true,
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO plans (id, name, cycle, months, price_cents, discount_cents) VALUES
+  ('mensal',    'Mensal',    'MONTHLY',      1,  11900,     0),
+  ('semestral', 'Semestral', 'SEMIANNUALLY', 6,  71400,  7140),
+  ('anual',     'Anual',     'YEARLY',       12, 142800, 28560)
+ON CONFLICT (id) DO NOTHING;
+
+-- ---- Histórico de cobranças (espelho local dos eventos de webhook do Asaas)
+-- id = o próprio id da cobrança no Asaas (ex: "pay_xxx") — garante upsert
+-- idempotente mesmo que o Asaas reenvie o mesmo evento de webhook.
+CREATE TABLE IF NOT EXISTS billing_transactions (
+  id            text PRIMARY KEY,
+  business_id   text NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  value_cents   integer NOT NULL DEFAULT 0,
+  status        text NOT NULL DEFAULT 'pending', -- pending|confirmed|received|overdue|refused|refunded
+  due_date      date,
+  paid_at       timestamptz,
+  raw_event     jsonb,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS billing_transactions_business_id_idx ON billing_transactions (business_id);
+
+-- ---- Configurações da plataforma (Hello Inova) ------------------------------
+-- Linha única (id = 'default'). Guarda dados não-sensíveis usados para montar
+-- a mensagem de cobrança via WhatsApp (chave Pix para pagamento alternativo).
+-- Credenciais do Asaas (API key, token de webhook) NUNCA ficam aqui — são
+-- variáveis de ambiente na Vercel (ver README).
+CREATE TABLE IF NOT EXISTS platform_settings (
+  id                   text PRIMARY KEY DEFAULT 'default',
+  pix_key              text NOT NULL DEFAULT '',
+  pix_key_owner_name   text NOT NULL DEFAULT '',
+  updated_at           timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO platform_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;

@@ -12,14 +12,15 @@ Uma base de produto reutilizável para catálogo de serviços e agendamento onli
 
 1. [Instalação e desenvolvimento](#instalação-e-desenvolvimento)
 2. [Deploy na Vercel (produção)](#deploy-na-vercel-produção)
-3. [Como criar uma nova empresa (sem código)](#como-criar-uma-nova-empresa-sem-código)
-4. [Acessos gerados no seed](#acessos-gerados-no-seed)
-5. [Arquitetura](#arquitetura)
-6. [Estrutura de pastas](#estrutura-de-pastas)
-7. [Segurança](#segurança)
-8. [Backup e restauração](#backup-e-restauração)
-9. [Evolução do produto](#evolução-do-produto)
-10. [Checklist de entrega](#checklist-de-entrega)
+3. [Assinaturas e cobrança (Asaas)](#assinaturas-e-cobrança-asaas)
+4. [Como criar uma nova empresa (sem código)](#como-criar-uma-nova-empresa-sem-código)
+5. [Acessos gerados no seed](#acessos-gerados-no-seed)
+6. [Arquitetura](#arquitetura)
+7. [Estrutura de pastas](#estrutura-de-pastas)
+8. [Segurança](#segurança)
+9. [Backup e restauração](#backup-e-restauração)
+10. [Evolução do produto](#evolução-do-produto)
+11. [Checklist de entrega](#checklist-de-entrega)
 
 ---
 
@@ -71,8 +72,10 @@ O sistema usa **Vercel Postgres** (banco de dados) e **Vercel Blob** (armazename
 
 1. No projeto na Vercel, aba **Storage → Create Database → Postgres** (via Neon, integração nativa da Vercel).
 2. Depois de criado, a Vercel injeta automaticamente as variáveis `POSTGRES_URL` (ou `DATABASE_URL`, dependendo da versão da integração — o código já reconhece as duas) no projeto.
-3. Abra o **Query** (console SQL) do banco pelo próprio painel da Vercel e cole o conteúdo do arquivo [`db/schema.sql`](./db/schema.sql) deste repositório. Execute. Isso cria todas as tabelas (`businesses`, `admin_users`, `categories`, `services`, `professionals`, `customers`, `appointments`, `blocked_dates`, `gallery_images`, `testimonials`, `banners`).
+3. Abra o **Query** (console SQL) do banco pelo próprio painel da Vercel e cole o conteúdo do arquivo [`db/schema.sql`](./db/schema.sql) deste repositório. Execute. Isso cria todas as tabelas (`businesses`, `admin_users`, `categories`, `services`, `professionals`, `customers`, `appointments`, `blocked_dates`, `gallery_images`, `testimonials`, `banners`, `plans`, `billing_transactions`, `platform_settings`).
 4. No mesmo console, cole o conteúdo do arquivo [`db/seed.sql`](./db/seed.sql) e execute. Isso cadastra a empresa de demonstração **Beauty Demo** (14 serviços, 7 categorias, 6 profissionais, clientes e agendamentos de exemplo) e um usuário **super admin**, com senhas já criptografadas (bcrypt) — as senhas em texto puro geradas nesse processo estão listadas em [Acessos gerados no seed](#acessos-gerados-no-seed) e não ficam salvas em nenhum arquivo do repositório.
+
+> **Banco já existente (deploy anterior a este recurso)?** `schema.sql` só cria tabelas que ainda não existem — em um banco que já estava em produção antes da funcionalidade de assinaturas, as colunas e tabelas novas não aparecem sozinhas. Nesse caso, execute também o conteúdo de [`db/migration-billing.sql`](./db/migration-billing.sql) no mesmo console SQL — é uma migração idempotente (`ADD COLUMN IF NOT EXISTS`/`CREATE TABLE IF NOT EXISTS`), segura para rodar mesmo que parte da estrutura já exista.
 
 > Se quiser gerar um novo `db/seed.sql` com senhas diferentes (por exemplo, antes de entregar o sistema a um cliente), rode `npm run generate-seed` neste projeto — o script reaproveita os dados de demonstração já existentes em `src/data/demoData.ts`, gera senhas aleatórias novas e imprime as credenciais no terminal uma única vez.
 
@@ -81,23 +84,72 @@ O sistema usa **Vercel Postgres** (banco de dados) e **Vercel Blob** (armazename
 1. Aba **Storage → Create Database → Blob**.
 2. A Vercel injeta automaticamente a variável `BLOB_READ_WRITE_TOKEN` no projeto.
 
-### 4. Configurar a variável de sessão
+### 4. Configurar as variáveis de ambiente
 
 Em **Settings → Environment Variables**, adicione:
 
 | Nome | Valor |
 |---|---|
 | `JWT_SECRET` | Uma string longa e aleatória (ex: gere com `openssl rand -base64 48`). Usada para assinar as sessões de login — **nunca reutilize um valor de exemplo em produção**. |
+| `ASAAS_API_KEY` | Chave de API da conta [Asaas](https://www.asaas.com) da Hello Inova (**Configurações → Integrações → API** dentro do painel Asaas). Usada para cobrar a mensalidade das empresas — veja [Assinaturas e cobrança (Asaas)](#assinaturas-e-cobrança-asaas). |
+| `ASAAS_ENV` | `production` para cobrar de verdade, ou `sandbox` para testar sem movimentar dinheiro real. **Se não for definida, o sistema assume `sandbox` por padrão** (proteção contra deploy mal configurado cobrar dinheiro real por engano) — ou seja, é preciso definir explicitamente `production` quando estiver pronto para cobrar. |
+| `ASAAS_WEBHOOK_TOKEN` | Um segredo qualquer definido por você (ex: gere com `openssl rand -hex 24`) — cadastrado tanto aqui quanto no webhook configurado no painel Asaas (passo 3 da seção de assinaturas), para o sistema confirmar que os avisos de pagamento recebidos realmente vieram do Asaas. |
 
 As demais variáveis (`POSTGRES_URL`/`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`) já foram criadas automaticamente nos passos 2 e 3.
 
 ### 5. Deploy
 
-Com o banco, o storage e o `JWT_SECRET` configurados, clique em **Deploy** (ou **Redeploy**, se o primeiro deploy tiver ocorrido antes desse passo). A partir daqui, **todo `git push` na branch `main` publica uma nova versão automaticamente** — não é necessário rodar nenhum comando de deploy manual.
+Com o banco, o storage e as variáveis de ambiente configuradas, clique em **Deploy** (ou **Redeploy**, se o primeiro deploy tiver ocorrido antes desse passo). A partir daqui, **todo `git push` na branch `main` publica uma nova versão automaticamente** — não é necessário rodar nenhum comando de deploy manual.
 
 ### Roteamento
 
 A aplicação usa **BrowserRouter** com URLs limpas (ex: `/empresa/beauty-demo`, sem `#`). O `vercel.json` já inclui a regra de rewrite necessária para que atualizar a página, compartilhar links diretos e navegar entre seções funcione corretamente em qualquer rota — inclusive dentro do `/api`, que é excluído do rewrite.
+
+---
+
+## Assinaturas e cobrança (Asaas)
+
+Cada empresa cadastrada na plataforma paga uma mensalidade à Hello Inova para continuar usando o site e o painel administrativo. A cobrança é automática, via **cartão de crédito recorrente** processado pelo gateway [Asaas](https://www.asaas.com), com três planos:
+
+| Plano | Valor cheio | Desconto | Valor cobrado |
+|---|---|---|---|
+| Mensal | R$ 119,00/mês | — | R$ 119,00/mês |
+| Semestral | R$ 714,00 | R$ 71,40 | R$ 642,60 a cada 6 meses |
+| Anual | R$ 1.428,00 | R$ 285,60 (20%) | R$ 1.142,40 a cada 12 meses |
+
+Os valores acima são os que vêm cadastrados no `db/schema.sql`/`db/seed.sql` — **podem ser editados a qualquer momento pelo Super Admin**, em **Empresas na plataforma → Planos de assinatura**, sem precisar mexer no banco de dados nem redeployar.
+
+### 1. Criar e configurar a conta Asaas
+
+1. Crie (ou use) uma conta em [asaas.com](https://www.asaas.com) em nome da Hello Inova.
+2. Em **Configurações → Integrações → API**, gere uma chave de API e configure-a como `ASAAS_API_KEY` (veja passo 4 do deploy, acima). Recomenda-se testar primeiro com `ASAAS_ENV=sandbox` e uma conta de testes do Asaas antes de apontar para produção.
+3. Cadastre a **chave Pix** que a Hello Inova usa para receber pagamentos manuais (usada apenas nas mensagens de cobrança por WhatsApp — veja abaixo) em **Super Admin → Empresas na plataforma → Configurações da plataforma**.
+
+### 2. Configurar o webhook
+
+O Asaas avisa o sistema sempre que um pagamento é confirmado, recusado ou fica em atraso, via webhook. Sem isso, o status de assinatura das empresas não é atualizado automaticamente.
+
+1. No painel Asaas, vá em **Integrações → Webhooks** e crie um novo webhook apontando para `https://<seu-domínio-vercel>/api/webhooks/asaas`.
+2. Selecione (no mínimo) os eventos: `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`, `PAYMENT_REFUNDED`, `PAYMENT_CHARGEBACK_REQUESTED`.
+3. Configure o **token de autenticação** do webhook com o mesmo valor definido em `ASAAS_WEBHOOK_TOKEN` — o sistema rejeita qualquer chamada que não apresente esse token no cabeçalho `asaas-access-token`, para que ninguém além do Asaas consiga forjar uma confirmação de pagamento.
+
+### O que cada painel pode fazer
+
+**Painel administrativo da empresa** (`/admin/<slug>/assinatura`):
+- Ver o status da assinatura, o plano atual, a data da próxima cobrança e o cartão cadastrado (bandeira + últimos 4 dígitos — o número completo nunca é salvo neste sistema, veja [Segurança](#segurança)).
+- Assinar ou trocar o cartão de pagamento a qualquer momento.
+- Ver o histórico de cobranças.
+- Um aviso fixo aparece no topo de **todas** as páginas do painel mostrando quantos dias faltam para o vencimento; a partir de 5 dias (ou já vencido), o aviso vira um alerta destacado com um botão **"Pagar agora"**.
+
+**Super Admin** (`/super-admin`, em **Empresas na plataforma**):
+- **Excluir uma empresa** (remove todos os dados dela do banco).
+- **Cobrar via WhatsApp**: um botão por empresa abre o WhatsApp já com uma mensagem de cobrança pronta, incluindo o valor, o vencimento e a chave Pix da Hello Inova, para uso alternativo ao cartão automático.
+- **Editar os planos** (valores e descontos de mensal/semestral/anual).
+- **Trocar o plano de cada empresa** (mensal/semestral/anual) e o **tipo de cobrança**: `padrao` (cobra normalmente pelo plano) ou `isento` (empresa cortesia, nunca cobrada — some o aviso de vencimento e a página de assinatura do painel dela).
+
+### Termos de uso, privacidade e cookies
+
+No primeiro login de cada administrador de empresa, o sistema exige a aceitação dos **Termos de Uso**, da **Política de Privacidade (LGPD)** e da **Política de Cookies** antes de liberar o acesso ao painel (`src/components/admin/TermsGate.tsx`) — o aceite fica registrado com data/hora em `admin_users.terms_accepted_at`. O conteúdo desses documentos está em `src/pages/legal/` e também é acessível publicamente em `/legal/termos-de-uso`, `/legal/privacidade` e `/legal/cookies`. **Esse conteúdo foi gerado com apoio de IA com base na LGPD (Lei 13.709/2018), no Marco Civil da Internet (Lei 12.965/2014) e no Código de Defesa do Consumidor — recomenda-se revisão por um advogado antes do uso em produção**, especialmente se o negócio, os fornecedores (Asaas, Vercel) ou a forma de cobrança mudarem.
 
 ---
 
@@ -170,27 +222,31 @@ SITE + PAINEL DA EMPRESA
 
 ```
 api/
-├── _lib/             Conexão com o banco, autenticação/sessão, mapeamento linha↔objeto
-├── auth/[...action].ts   Login, logout, sessão atual, troca de senha
-├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos etc.
+├── _lib/             Conexão com o banco, autenticação/sessão, mapeamento linha↔objeto, cliente Asaas
+├── auth/[...action].ts   Login, logout, sessão atual, troca de senha, aceite de termos
+├── data/[...path].ts     CRUD de empresas, catálogo, clientes, agendamentos, planos, configurações da plataforma etc.
+├── billing/[...action].ts  Assinar/atualizar cartão, consultar status de cobrança de uma empresa
+├── webhooks/asaas.ts  Recebe confirmações de pagamento do Asaas e atualiza o status de assinatura
 └── upload.ts         Upload e remoção de imagens no Vercel Blob
 
 db/
-├── schema.sql        DDL de todas as tabelas (rodar uma vez, na criação do banco)
-└── seed.sql          Dados de demonstração + super admin (gerado por scripts/generate-seed.mts)
+├── schema.sql            DDL de todas as tabelas (rodar uma vez, na criação do banco)
+├── migration-billing.sql Migração idempotente das tabelas/colunas de assinatura, para bancos já existentes
+└── seed.sql              Dados de demonstração + super admin (gerado por scripts/generate-seed.mts)
 
 scripts/
 └── generate-seed.mts Gera db/seed.sql a partir de src/data/demoData.ts, com senhas novas
 
 src/
-├── components/       Componentes reutilizáveis (públicos, admin e genéricos)
-├── pages/            Páginas (public/, admin/, superadmin/)
+├── components/       Componentes reutilizáveis (públicos, admin, legais e genéricos)
+├── pages/            Páginas (public/, admin/, superadmin/, legal/)
 ├── layouts/           Layouts (público, admin, super admin)
 ├── repositories/      Camada de dados e de imagens (DataRepository, ImageStorage, providers/)
+├── services/          Clientes de API para ações que não são CRUD simples (ex: billing.ts)
 ├── contexts/          BusinessContext, AuthContext, ToastContext
 ├── hooks/             Hooks de dados (useServices, useAppointments, useImage, ...)
 ├── types/             Tipos TypeScript de todas as entidades
-├── utils/             Disponibilidade de horários, formatação, validação, WhatsApp, slugs
+├── utils/             Disponibilidade de horários, formatação, validação, WhatsApp, slugs, cobrança
 ├── config/            Constantes globais
 ├── themes/            Aplicação de tema/CSS variables
 └── data/              Dados demonstrativos (empresa "Beauty Demo"), fonte do seed SQL
@@ -205,6 +261,8 @@ src/
 - Toda escrita de dados administrativos (empresas, catálogo, clientes, configurações) exige sessão válida, verificada no servidor a cada requisição — nunca apenas no frontend.
 - Leitura pública é limitada ao necessário para o site institucional e o agendamento (catálogo de serviços/profissionais, disponibilidade de horários). Dados de clientes (telefone, e-mail, anotações) e o conteúdo completo de agendamentos só são retornados para quem está autenticado na própria empresa ou é super admin.
 - O `JWT_SECRET` deve ser um valor longo, aleatório e exclusivo deste ambiente de produção — nunca reutilize um valor de exemplo ou de desenvolvimento.
+- **Dados de cartão de crédito nunca são armazenados neste sistema.** O número completo, a validade e o CVV informados na página de assinatura são recebidos pelo backend e repassados imediatamente ao Asaas via HTTPS, sem serem gravados em log nem no banco de dados — apenas a bandeira e os 4 últimos dígitos (devolvidos pelo próprio Asaas) ficam salvos, só para exibição.
+- Os campos de cobrança de uma empresa (`billing_type`, `billing_plan`) só podem ser alterados pelo Super Admin, nunca pela própria empresa; os campos de status da assinatura (`subscription_status`, `plan_expires_at`, dados do cartão) não são editáveis por nenhuma rota genérica — só são escritos internamente pelo fluxo de cobrança (`api/billing`) e pelo webhook do Asaas (`api/webhooks/asaas`), este último protegido por um token compartilhado (`ASAAS_WEBHOOK_TOKEN`).
 
 ---
 
@@ -219,8 +277,9 @@ Cada empresa pode exportar (**Painel → Backup → Exportar backup**) um arquiv
 | Nível | Stack | Status |
 |---|---|---|
 | 1 — Demonstração | React + LocalStorage/IndexedDB | Superado — usado apenas durante o desenvolvimento inicial do produto |
-| 2 — Backend real (atual) | React + Vercel Postgres + Vercel Blob + funções serverless + autenticação JWT/bcrypt | **Em produção** |
-| 3 — SaaS autoatendido | + cadastro público de novas empresas, pagamentos (Asaas/Mercado Pago/Stripe), planos cobrados automaticamente, domínios próprios por empresa, integração com WhatsApp API | Não implementado — hoje o cadastro de empresas é feito pelo super admin (Hello Inova), por decisão de escopo |
+| 2 — Backend real | React + Vercel Postgres + Vercel Blob + funções serverless + autenticação JWT/bcrypt | Superado pelo nível 3 |
+| 3 — Backend real + cobrança recorrente (atual) | + assinaturas com cobrança automática por cartão via Asaas, planos editáveis, cobrança manual por WhatsApp, termos de uso/LGPD/cookies | **Em produção** |
+| 4 — SaaS autoatendido | + cadastro público de novas empresas, domínios próprios por empresa, integração com WhatsApp API oficial | Não implementado — hoje o cadastro de empresas é feito pelo super admin (Hello Inova), por decisão de escopo |
 
 A camada `DataRepository`/`ImageStorage` foi criada exatamente para permitir essas evoluções sem reescrever o frontend.
 
@@ -244,6 +303,10 @@ A camada `DataRepository`/`ImageStorage` foi criada exatamente para permitir ess
 - [x] SEO dinâmico (title, meta description, Open Graph, schema.org, robots.txt, sitemap.xml)
 - [x] Responsivo (mobile-first, auditado em 320px/375px em todas as rotas)
 - [x] Deploy automático na Vercel a cada `push` na branch `main`
+- [x] Assinatura por plano (mensal/semestral/anual) com cobrança recorrente automática por cartão via Asaas
+- [x] Aviso fixo de vencimento em todas as páginas do painel administrativo, com alerta destacado nos últimos 5 dias
+- [x] Super Admin: excluir empresa, cobrar via WhatsApp (com Pix), editar planos, editar plano/tipo de cobrança por empresa
+- [x] Termos de Uso, Política de Privacidade (LGPD) e Política de Cookies, com aceite obrigatório no primeiro login
 
 ---
 

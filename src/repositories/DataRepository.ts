@@ -1,12 +1,14 @@
 import type {
   Appointment,
   Banner,
+  BillingPlanDef,
   BlockedDate,
   Business,
   BusinessBackup,
   Category,
   Customer,
   GalleryImage,
+  PlatformSettings,
   Professional,
   Service,
   Testimonial,
@@ -106,6 +108,14 @@ export interface DataRepository {
   // ---- Backup / restore -----------------------------------------------
   exportBusinessBackup(businessId: string): Promise<BusinessBackup>
   importBusinessBackup(backup: BusinessBackup): Promise<Business>
+
+  // ---- Assinatura: catálogo de planos e configurações da plataforma -------
+  // (as ações de cobrança em si — assinar/status — não passam por esta
+  // interface; ver src/api/billing.ts, um cliente dedicado como o de auth.)
+  getPlans(): Promise<BillingPlanDef[]>
+  updatePlan(id: string, data: Partial<Pick<BillingPlanDef, 'name' | 'priceCents' | 'discountCents' | 'active'>>): Promise<BillingPlanDef>
+  getPlatformSettings(): Promise<PlatformSettings>
+  updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings>
 
   // ---- Housekeeping -------------------------------------------------------
   resetDemoData(): Promise<void>

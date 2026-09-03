@@ -2,12 +2,14 @@ import type { DataRepository } from '../DataRepository'
 import type {
   Appointment,
   Banner,
+  BillingPlanDef,
   BlockedDate,
   Business,
   BusinessBackup,
   Category,
   Customer,
   GalleryImage,
+  PlatformSettings,
   Professional,
   Service,
   Testimonial,
@@ -225,6 +227,20 @@ class ApiProvider implements DataRepository {
   }
   async importBusinessBackup(backup: BusinessBackup): Promise<Business> {
     return post(`businesses${qs({ action: 'import-backup' })}`, backup)
+  }
+
+  // ---- Assinatura: planos e configurações da plataforma -----------------
+  async getPlans(): Promise<BillingPlanDef[]> {
+    return get('plans')
+  }
+  async updatePlan(id: string, data: Partial<Pick<BillingPlanDef, 'name' | 'priceCents' | 'discountCents' | 'active'>>): Promise<BillingPlanDef> {
+    return patch(`plans${qs({ id })}`, data)
+  }
+  async getPlatformSettings(): Promise<PlatformSettings> {
+    return get('platform-settings')
+  }
+  async updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings> {
+    return patch('platform-settings', data)
   }
 
   // ---- Housekeeping -------------------------------------------------------

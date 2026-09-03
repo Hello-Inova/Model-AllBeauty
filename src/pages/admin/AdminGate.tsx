@@ -3,6 +3,7 @@ import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessCon
 import { useAuth } from '../../contexts/AuthContext'
 import { FullPageLoader, BusinessNotFound } from '../../components/StateScreens'
 import { AdminLayout } from '../../layouts/AdminLayout'
+import { TermsGate } from '../../components/admin/TermsGate'
 import { adminRoutes } from '../../utils/routes'
 
 export function AdminGate() {
@@ -26,8 +27,10 @@ function AdminGateInner({ slug }: { slug: string }) {
   }
 
   return (
-    <AdminLayout business={business}>
-      <Outlet />
-    </AdminLayout>
+    <TermsGate>
+      <AdminLayout business={business}>
+        <Outlet />
+      </AdminLayout>
+    </TermsGate>
   )
 }

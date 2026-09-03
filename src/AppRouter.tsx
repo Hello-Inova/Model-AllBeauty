@@ -27,6 +27,11 @@ import { GalleryAdminPage } from './pages/admin/GalleryAdminPage'
 import { TestimonialsAdminPage } from './pages/admin/TestimonialsAdminPage'
 import { SettingsAdminPage } from './pages/admin/SettingsAdminPage'
 import { BackupAdminPage } from './pages/admin/BackupAdminPage'
+import { SubscriptionAdminPage } from './pages/admin/SubscriptionAdminPage'
+
+import { TermsPage } from './pages/legal/TermsPage'
+import { PrivacyPolicyPage } from './pages/legal/PrivacyPolicyPage'
+import { CookiesPolicyPage } from './pages/legal/CookiesPolicyPage'
 
 import { SuperAdminLoginPage } from './pages/superadmin/SuperAdminLoginPage'
 import { SuperAdminGate } from './pages/superadmin/SuperAdminGate'
@@ -65,7 +70,12 @@ export default function AppRouter() {
               <Route path="depoimentos" element={<TestimonialsAdminPage />} />
               <Route path="configuracoes" element={<SettingsAdminPage />} />
               <Route path="backup" element={<BackupAdminPage />} />
+              <Route path="assinatura" element={<SubscriptionAdminPage />} />
             </Route>
+
+            <Route path="/legal/termos-de-uso" element={<TermsPage />} />
+            <Route path="/legal/privacidade" element={<PrivacyPolicyPage />} />
+            <Route path="/legal/cookies" element={<CookiesPolicyPage />} />
 
             <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
             <Route path="/super-admin" element={<SuperAdminGate />}>
