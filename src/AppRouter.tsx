@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { NotFoundPage } from './components/StateScreens'
 import { ScrollToTop } from './components/ScrollToTop'
 
-import { RootRedirect } from './pages/RootRedirect'
+import { LandingPage } from './pages/LandingPage'
 import { SignupPage } from './pages/SignupPage'
 import { PublicBusinessGate } from './pages/public/PublicBusinessGate'
 import { HomePage } from './pages/public/HomePage'
@@ -51,7 +51,7 @@ export default function AppRouter() {
       <ToastProvider>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<RootRedirect />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/comecar" element={<SignupPage />} />
 
             <Route path="/empresa/:slug" element={<PublicBusinessGate />}>

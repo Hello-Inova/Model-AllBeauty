@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Rocket, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { dataRepository } from '../repositories'
@@ -20,6 +20,7 @@ import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCe
 export function SignupPage() {
   const navigate = useNavigate()
   const { register } = useAuth()
+  const [searchParams] = useSearchParams()
 
   const [plans, setPlans] = useState<BillingPlanDef[]>([])
   const [businessName, setBusinessName] = useState('')
@@ -27,7 +28,9 @@ export function SignupPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
-  const [billingPlan, setBillingPlan] = useState('mensal')
+  // Pre-selected when the visitor arrives from a specific pricing card on
+  // the landing page (?plano=anual) — falls back to 'mensal' otherwise.
+  const [billingPlan, setBillingPlan] = useState(searchParams.get('plano') || 'mensal')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
