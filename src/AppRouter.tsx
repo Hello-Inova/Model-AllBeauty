@@ -5,6 +5,7 @@ import { NotFoundPage } from './components/StateScreens'
 import { ScrollToTop } from './components/ScrollToTop'
 
 import { RootRedirect } from './pages/RootRedirect'
+import { SignupPage } from './pages/SignupPage'
 import { PublicBusinessGate } from './pages/public/PublicBusinessGate'
 import { HomePage } from './pages/public/HomePage'
 import { ServicesPage } from './pages/public/ServicesPage'
@@ -51,6 +52,7 @@ export default function AppRouter() {
         <AuthProvider>
           <Routes>
             <Route path="/" element={<RootRedirect />} />
+            <Route path="/comecar" element={<SignupPage />} />
 
             <Route path="/empresa/:slug" element={<PublicBusinessGate />}>
               <Route index element={<HomePage />} />

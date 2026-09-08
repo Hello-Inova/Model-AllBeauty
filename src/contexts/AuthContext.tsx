@@ -15,9 +15,20 @@ interface AdminSession {
   termsAcceptedAt: string | null
 }
 
+interface RegisterInput {
+  businessName: string
+  segment?: string
+  phone?: string
+  whatsapp?: string
+  adminEmail: string
+  adminPassword: string
+  billingPlan?: string
+}
+
 interface AuthContextValue {
   session: AdminSession | null
   loading: boolean
+  register: (input: RegisterInput) => Promise<{ ok: boolean; error?: string; businessSlug?: string }>
   loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   loginSuperAdmin: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
@@ -57,6 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
     return () => {
       cancelled = true
+    }
+  }, [])
+
+  const register = useCallback(async (input: RegisterInput) => {
+    try {
+      const r = await api<{ session: AdminSession }>('register', input)
+      setSession(r.session)
+      return { ok: true, businessSlug: r.session.businessSlug }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : undefined }
     }
   }, [])
 
@@ -100,8 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout }),
-    [session, loading, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout],
+    () => ({ session, loading, register, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout }),
+    [session, loading, register, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

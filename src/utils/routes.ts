@@ -3,6 +3,10 @@
 // server-side rewrite that makes navigation, refreshes and deep links all
 // work correctly in production.
 
+export const platformRoutes = {
+  signup: '/comecar',
+}
+
 export const publicRoutes = {
   home: (slug: string) => `/empresa/${slug}`,
   services: (slug: string) => `/empresa/${slug}/servicos`,

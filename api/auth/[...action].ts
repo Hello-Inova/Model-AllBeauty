@@ -13,6 +13,8 @@ import {
   invalidCredentialsMessage,
   LOGIN_LOCKOUT_MESSAGE,
 } from '../_lib/auth.js'
+import { makeId } from '../../src/utils/id.js'
+import { slugify } from '../../src/utils/slug.js'
 
 // Consolidated auth endpoint — every action Vercel would otherwise need a
 // separate function file for lives here, keeping the deployment's function
@@ -44,9 +46,17 @@ function getAction(req: VercelRequest): string | undefined {
   return decodeURIComponent(parts[idx + 1] ?? '')
 }
 
+function remoteIpOf(req: VercelRequest): string {
+  const fwd = req.headers['x-forwarded-for']
+  const first = Array.isArray(fwd) ? fwd[0] : fwd
+  if (first) return first.split(',')[0].trim()
+  return req.socket?.remoteAddress ?? '127.0.0.1'
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = getAction(req)
   try {
+    if (action === 'register' && req.method === 'POST') return await register(req, res)
     if (action === 'login-admin' && req.method === 'POST') return await loginAdmin(req, res)
     if (action === 'login-super' && req.method === 'POST') return await loginSuper(req, res)
     if (action === 'logout' && req.method === 'POST') return logout(res)
@@ -60,6 +70,111 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error(e)
     res.status(500).json({ error: 'Erro interno ao autenticar.' })
   }
+}
+
+const VALID_BILLING_PLANS = new Set(['mensal', 'semestral', 'anual'])
+
+const DEFAULT_WORKING_HOURS = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+  weekday,
+  active: weekday !== 0,
+  periods: weekday === 0 ? [] : [{ start: '09:00', end: '18:00' }],
+}))
+
+const DEFAULT_BOOKING_POLICIES = {
+  minAdvanceMinutes: 60,
+  maxAdvanceDays: 30,
+  cancellationWindowHours: 24,
+  allowReschedule: true,
+  bufferBetweenAppointmentsMinutes: 10,
+  lateToleranceMinutes: 15,
+  requireEmail: false,
+  requireNotes: false,
+  paymentPolicy: 'pay_on_site',
+}
+
+/**
+ * Public self-service signup: any visitor picks a name for their business +
+ * a billing cycle, sets an admin login, and gets a brand-new business +
+ * owner account, auto-logged-in — no Hello Inova/superadmin step in between.
+ * The business starts with `subscription_status: sem_assinatura` (DB
+ * default, deliberately not set here — see the comment on businessToRow in
+ * api/_lib/mappers.ts); the owner pays their chosen plan afterwards from
+ * the Assinatura screen, same flow as a superadmin-created business. All
+ * cosmetic/content fields (logo, colors, services…) start empty/default and
+ * are filled in later via the admin panel — the onboarding checklist on the
+ * dashboard walks the new owner through exactly that.
+ */
+async function register(req: VercelRequest, res: VercelResponse) {
+  // Anti-abuse: reuses the same daily attempt counter as login lockout,
+  // scoped by IP instead of by credential — caps how many businesses a
+  // single visitor can spin up per day without needing a new DB table.
+  const scope = `register:${remoteIpOf(req)}`
+  if (await isLoginLocked(scope)) {
+    return res.status(429).json({ error: 'Limite de cadastros atingido por hoje a partir desta conexão. Tente novamente amanhã.' })
+  }
+  await registerFailedLoginAttempt(scope)
+
+  const body = readBody(req)
+  const businessName = String(body.businessName ?? '').trim()
+  const segment = String(body.segment ?? '').trim() || 'Salão de beleza'
+  const phone = String(body.phone ?? '').trim()
+  const whatsapp = String(body.whatsapp ?? '').replace(/\D/g, '')
+  const adminEmail = String(body.adminEmail ?? '').trim().toLowerCase()
+  const adminPassword = String(body.adminPassword ?? '')
+  const billingPlan = VALID_BILLING_PLANS.has(body.billingPlan) ? body.billingPlan : 'mensal'
+
+  if (businessName.length < 2) {
+    return res.status(400).json({ error: 'Informe o nome do seu negócio.' })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+    return res.status(400).json({ error: 'Informe um e-mail válido.' })
+  }
+  if (adminPassword.length < 6) {
+    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' })
+  }
+
+  // Slug deduplication: two businesses can easily share a name (two
+  // "Espaço Bella" in different cities), and unlike the superadmin wizard —
+  // which a human reviews before publishing — this is fully unattended, so
+  // a collision has to resolve itself instead of failing the signup.
+  const base = slugify(businessName) || 'minha-empresa'
+  let slug = base
+  for (let suffix = 2; suffix <= 50; suffix++) {
+    const existing = await sql`SELECT id FROM businesses WHERE slug = ${slug} LIMIT 1`
+    if (existing.rows.length === 0) break
+    slug = `${base}-${suffix}`
+  }
+
+  const newId = makeId('biz')
+  await sql`
+    INSERT INTO businesses (
+      id, slug, name, display_name, description, segment, logo, favicon, cover_image, hero_image,
+      phone, whatsapp, email, instagram, facebook, tiktok, youtube, website,
+      address, city, state, country, zip_code, currency, timezone,
+      primary_color, secondary_color, accent_color, background_color, foreground_color, theme,
+      active, demo, plan, working_hours, booking_policies, billing_type, billing_plan
+    ) VALUES (
+      ${newId}, ${slug}, ${businessName}, ${businessName}, ${''}, ${segment},
+      ${null}, ${null}, ${null}, ${null},
+      ${phone}, ${whatsapp}, ${adminEmail}, ${null}, ${null}, ${null}, ${null}, ${null},
+      ${''}, ${''}, ${''}, ${'Brasil'}, ${''}, ${'BRL'}, ${'America/Sao_Paulo'},
+      ${'#b3873e'}, ${'#2b2320'}, ${'#b3873e'}, ${'#ffffff'}, ${'#1c1917'}, ${'light'},
+      ${true}, ${false}, ${'basico'}, ${JSON.stringify(DEFAULT_WORKING_HOURS)}, ${JSON.stringify(DEFAULT_BOOKING_POLICIES)},
+      ${'padrao'}, ${billingPlan}
+    )
+  `
+  const passwordHash = await hashPassword(adminPassword)
+  const adminId = makeId('adm')
+  await sql`
+    INSERT INTO admin_users (id, business_id, name, email, password_hash, role, active)
+    VALUES (${adminId}, ${newId}, ${businessName}, ${adminEmail}, ${passwordHash}, 'owner', true)
+  `
+
+  const token = await signSession({ sub: adminId, businessId: newId, role: 'owner', email: adminEmail })
+  res.setHeader('Set-Cookie', sessionCookieHeader(token))
+  res.status(201).json({
+    session: { businessSlug: slug, email: adminEmail, role: 'owner', termsAcceptedAt: null },
+  })
 }
 
 async function loginAdmin(req: VercelRequest, res: VercelResponse) {

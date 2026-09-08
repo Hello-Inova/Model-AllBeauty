@@ -3,6 +3,7 @@ import { CalendarCheck2, Users, TrendingUp, XCircle, ArrowRight } from 'lucide-r
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
 import { useAppointments, useCustomers, useProfessionals, useServices } from '../../hooks/useEntities'
 import { DashboardCard } from '../../components/admin/DashboardCard'
+import { OnboardingChecklist } from '../../components/admin/OnboardingChecklist'
 import { AppointmentStatusBadge } from '../../components/admin/AppointmentStatusBadge'
 import { ScrollableTable, Td, Th } from '../../components/ScrollableTable'
 import { EmptyState } from '../../components/Form'
@@ -40,6 +41,8 @@ export function DashboardPage() {
         <h1 className="font-heading text-2xl font-semibold">Dashboard</h1>
         <p className="text-sm text-[var(--color-muted-foreground)]">Visão geral de {business.displayName}.</p>
       </div>
+
+      <OnboardingChecklist business={business} servicesCount={services.length} />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard label="Agendamentos hoje" value={todayAppointments.length} icon={<CalendarCheck2 size={20} />} />
