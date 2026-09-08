@@ -58,7 +58,10 @@ export function LandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/90 backdrop-blur border-b border-[var(--color-border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <span className="font-heading text-lg font-semibold">{APP_NAME}</span>
+          <span className="flex items-center gap-2">
+            <img src="/logo.png" alt={APP_NAME} className="h-8 w-8 rounded-full" />
+            <span className="font-heading text-lg font-semibold">{APP_NAME}</span>
+          </span>
           <nav className="hidden sm:flex items-center gap-6 text-sm">
             <a href="#recursos" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">Recursos</a>
             <a href="#como-funciona" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">Como funciona</a>
@@ -88,7 +91,10 @@ export function LandingPage() {
           }`}
         >
           <div className="flex items-center justify-between px-4 h-16 border-b border-[var(--color-border)] shrink-0">
-            <span className="font-heading text-lg font-semibold">{APP_NAME}</span>
+            <span className="flex items-center gap-2">
+              <img src="/logo.png" alt={APP_NAME} className="h-7 w-7 rounded-full" />
+              <span className="font-heading text-lg font-semibold">{APP_NAME}</span>
+            </span>
             <button className="p-2 -mr-2" onClick={() => setMenuOpen(false)} aria-label="Fechar menu">
               <X size={22} />
             </button>
