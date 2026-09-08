@@ -14,10 +14,20 @@ export function ServiceCard({ business, service, category }: { business: Busines
       className="group flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
     >
       <div className="relative aspect-[16/10]">
+        {/*
+          `absolute inset-0` instead of `w-full h-full`: this box is a
+          flex-column item (the Link above is `flex flex-col`), and in that
+          layout Chromium resolves a percentage-height child (h-full) before
+          the parent's own aspect-ratio-derived height is settled, so it
+          falls back to the image's natural size — a portrait photo then
+          blows the card out to its own height instead of being cropped to
+          16:10. Absolute positioning fills the box after it's already
+          sized, sidestepping that resolution order entirely.
+        */}
         <SmartImage
           asset={service.image}
           alt={service.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-300"
           icon={getCategoryIcon(category?.slug)}
           iconSize={32}
         />
