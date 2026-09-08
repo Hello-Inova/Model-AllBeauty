@@ -74,18 +74,40 @@ export function LandingPage() {
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
-        {menuOpen && (
-          <div className="sm:hidden border-t border-[var(--color-border)] px-4 py-4 flex flex-col gap-3 text-sm bg-[var(--color-background)]">
-            <a href="#recursos" onClick={() => setMenuOpen(false)} className="text-[var(--color-muted-foreground)]">Recursos</a>
-            <a href="#como-funciona" onClick={() => setMenuOpen(false)} className="text-[var(--color-muted-foreground)]">Como funciona</a>
-            <a href="#planos" onClick={() => setMenuOpen(false)} className="text-[var(--color-muted-foreground)]">Planos</a>
-            <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} className="text-[var(--color-muted-foreground)]">Ver demonstração</Link>
-            <Link to={platformRoutes.signup}>
-              <Button size="sm" className="w-full mt-1">Criar minha conta</Button>
+      </header>
+
+      {/* Mobile side menu (70% width, full height) */}
+      <div className={`sm:hidden fixed inset-0 z-50 ${menuOpen ? '' : 'pointer-events-none'}`} aria-hidden={!menuOpen}>
+        <div
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${menuOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMenuOpen(false)}
+        />
+        <div
+          className={`absolute right-0 top-0 h-full w-[70%] bg-[var(--color-background)] shadow-xl flex flex-col transition-transform duration-300 ${
+            menuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          <div className="flex items-center justify-between px-4 h-16 border-b border-[var(--color-border)] shrink-0">
+            <span className="font-heading text-lg font-semibold">{APP_NAME}</span>
+            <button className="p-2 -mr-2" onClick={() => setMenuOpen(false)} aria-label="Fechar menu">
+              <X size={22} />
+            </button>
+          </div>
+          <nav className="flex flex-col gap-1 px-4 py-6 text-sm flex-1 overflow-y-auto">
+            <a href="#recursos" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Recursos</a>
+            <a href="#como-funciona" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Como funciona</a>
+            <a href="#planos" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Planos</a>
+            <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">
+              Ver demonstração
+            </Link>
+          </nav>
+          <div className="px-4 pb-6 shrink-0">
+            <Link to={platformRoutes.signup} onClick={() => setMenuOpen(false)}>
+              <Button size="sm" className="w-full">Criar minha conta</Button>
             </Link>
           </div>
-        )}
-      </header>
+        </div>
+      </div>
 
       {/* Hero */}
       <section className="relative overflow-hidden">
