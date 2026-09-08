@@ -11,7 +11,7 @@ export function ServiceCard({ business, service, category }: { business: Busines
   return (
     <Link
       to={publicRoutes.service(business.slug, service.slug)}
-      className="group flex h-full flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
+      className="group flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
     >
       <div className="relative aspect-[16/10]">
         <SmartImage
@@ -27,10 +27,20 @@ export function ServiceCard({ business, service, category }: { business: Busines
           </span>
         )}
       </div>
-      <div className="p-3.5 flex flex-col gap-1.5 flex-1">
-        {category && <span className="text-[11px] uppercase tracking-wide text-[var(--color-primary)] font-semibold">{category.name}</span>}
-        <h3 className="font-heading font-semibold text-base leading-snug">{service.name}</h3>
-        <p className="text-sm text-[var(--color-muted-foreground)] line-clamp-1 flex-1">{service.shortDescription}</p>
+      {/*
+        Every card in a row/carousel needs the same height *without* one
+        short card stretching to match a tall sibling and leaving a dead
+        gap of empty space (the previous flex-1 + h-full approach did
+        exactly that). Instead, each variable-height field reserves a
+        fixed slot — category always occupies its line, the title always
+        reserves two lines via min-height — so cards land at the same
+        height because their content is the same size, not because
+        something is stretched to fill leftover space.
+      */}
+      <div className="p-3.5 flex flex-col gap-1.5">
+        <span className="block min-h-[1rem] text-[11px] uppercase tracking-wide text-[var(--color-primary)] font-semibold">{category?.name}</span>
+        <h3 className="font-heading font-semibold text-base leading-snug line-clamp-2 min-h-[2.5rem]">{service.name}</h3>
+        <p className="text-sm text-[var(--color-muted-foreground)] line-clamp-1">{service.shortDescription}</p>
         <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border)] mt-0.5">
           <span className="flex items-center gap-1 text-xs text-[var(--color-muted-foreground)]">
             <Clock size={13} /> {formatDuration(service.duration)}
