@@ -11,7 +11,7 @@ export function ServiceCard({ business, service, category }: { business: Busines
   return (
     <Link
       to={publicRoutes.service(business.slug, service.slug)}
-      className="group flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
+      className="group flex h-full flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden hover:shadow-lg transition"
     >
       <div className="relative aspect-[4/3]">
         <SmartImage
