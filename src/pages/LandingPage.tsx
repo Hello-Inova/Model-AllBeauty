@@ -31,7 +31,13 @@ import { APP_NAME, DEFAULT_BUSINESS_SLUG } from '../config'
 import { platformRoutes, publicRoutes, legalRoutes } from '../utils/routes'
 import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents } from '../utils/billing'
 
+// No mobile/tablet (grade de até 2 colunas) mostramos 3 cards recolhidos;
+// no desktop (grade de 4 colunas) mostramos 4, preenchendo a linha inteira
+// em vez de deixar um espaço vazio. O 4º card fica sempre no DOM (índice 3
+// de FEATURES) mas só aparece a partir do breakpoint `lg` — ver o `hidden
+// lg:block` aplicado abaixo no card recolhido de índice >= COLLAPSED_COUNT.
 const FEATURES_COLLAPSED_COUNT = 3
+const FEATURES_COLLAPSED_COUNT_DESKTOP = 4
 
 const FEATURES = [
   { icon: Globe, title: 'Site profissional', text: 'Um site bonito e rápido para o seu negócio, pronto em minutos — sem precisar contratar ninguém.' },
@@ -70,6 +76,44 @@ export function LandingPage() {
 
   function goToPlan(delta: number) {
     setPlanIndex((i) => (plans.length === 0 ? 0 : (i + delta + plans.length) % plans.length))
+  }
+
+  /**
+   * Um único card de plano — usado tanto na grade estática do desktop (todos
+   * os planos lado a lado, sem carrossel, já que cabem na tela) quanto no
+   * carrossel de swipe do mobile/tablet (um plano por vez). Extraído aqui
+   * pra não duplicar o markup entre as duas versões.
+   */
+  function renderPlanCard(p: BillingPlanDef) {
+    const featured = p.discountCents > 0 && p.id === plans.reduce((a, b) => (b.discountCents > a.discountCents ? b : a), plans[0]).id
+    return (
+      <div className={`h-full rounded-xl border p-6 flex flex-col gap-4 ${featured ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)] relative' : 'border-[var(--color-border)]'}`}>
+        {featured && (
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full">
+            Melhor custo-benefício
+          </span>
+        )}
+        <div>
+          <p className="font-heading font-semibold">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
+          <p className="text-3xl font-heading font-semibold mt-1.5">{formatCents(planFinalPriceCents(p))}</p>
+          {p.discountCents > 0 ? (
+            <p className="text-xs text-emerald-700 mt-1">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
+          ) : (
+            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Cobrança recorrente</p>
+          )}
+        </div>
+        <ul className="flex flex-col gap-2 text-sm">
+          {['Site e agenda online', 'Painel administrativo completo', 'Personalização de marca', 'Suporte da Hello Inova'].map((f) => (
+            <li key={f} className="flex items-center gap-2">
+              <CheckCircle2 size={15} className="text-[var(--color-primary)] shrink-0" /> {f}
+            </li>
+          ))}
+        </ul>
+        <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
+          <Button variant={featured ? 'primary' : 'outline'} className="w-full transition-transform hover:scale-[1.03] active:scale-95">Escolher este plano</Button>
+        </Link>
+      </div>
+    )
   }
 
   function handleTouchStart(e: React.TouchEvent) {
@@ -179,8 +223,12 @@ export function LandingPage() {
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Feito para o dia a dia do seu negócio</h2>
         </Reveal>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {(featuresExpanded ? FEATURES : FEATURES.slice(0, FEATURES_COLLAPSED_COUNT)).map((f, i) => (
-            <Reveal key={f.title} delay={(i % FEATURES_COLLAPSED_COUNT) * 80}>
+          {(featuresExpanded ? FEATURES : FEATURES.slice(0, FEATURES_COLLAPSED_COUNT_DESKTOP)).map((f, i) => (
+            <Reveal
+              key={f.title}
+              delay={(i % FEATURES_COLLAPSED_COUNT_DESKTOP) * 80}
+              className={!featuresExpanded && i >= FEATURES_COLLAPSED_COUNT ? 'hidden lg:block' : undefined}
+            >
               <div className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 flex flex-col gap-3 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-[var(--color-primary)]/40">
                 <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
                   <f.icon size={20} />
@@ -261,86 +309,68 @@ export function LandingPage() {
         {plans.length === 0 ? (
           <p className="text-sm text-[var(--color-muted-foreground)] text-center">Carregando planos…</p>
         ) : (
-          <div className="max-w-md mx-auto">
-            <div
-              className="overflow-hidden"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              <div
-                className="flex transition-transform duration-300 ease-out"
-                style={{ transform: `translateX(-${planIndex * 100}%)` }}
-              >
-                {plans.map((p) => {
-                  const featured = p.discountCents > 0 && p.id === plans.reduce((a, b) => (b.discountCents > a.discountCents ? b : a), plans[0]).id
-                  return (
-                    <div key={p.id} className="w-full shrink-0 px-1">
-                      <div
-                        className={`rounded-xl border p-6 flex flex-col gap-4 ${featured ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)] relative' : 'border-[var(--color-border)]'}`}
-                      >
-                        {featured && (
-                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full">
-                            Melhor custo-benefício
-                          </span>
-                        )}
-                        <div>
-                          <p className="font-heading font-semibold">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
-                          <p className="text-3xl font-heading font-semibold mt-1.5">{formatCents(planFinalPriceCents(p))}</p>
-                          {p.discountCents > 0 ? (
-                            <p className="text-xs text-emerald-700 mt-1">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
-                          ) : (
-                            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Cobrança recorrente</p>
-                          )}
-                        </div>
-                        <ul className="flex flex-col gap-2 text-sm">
-                          {['Site e agenda online', 'Painel administrativo completo', 'Personalização de marca', 'Suporte da Hello Inova'].map((f) => (
-                            <li key={f} className="flex items-center gap-2">
-                              <CheckCircle2 size={15} className="text-[var(--color-primary)] shrink-0" /> {f}
-                            </li>
-                          ))}
-                        </ul>
-                        <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
-                          <Button variant={featured ? 'primary' : 'outline'} className="w-full transition-transform hover:scale-[1.03] active:scale-95">Escolher este plano</Button>
-                        </Link>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+          <>
+            {/* Desktop: os planos cabem todos na tela, então mostramos os 3
+                lado a lado numa grade fixa — sem carrossel, sem swipe. */}
+            <div className="hidden lg:grid lg:grid-cols-3 gap-6 items-stretch">
+              {plans.map((p) => (
+                <div key={p.id}>{renderPlanCard(p)}</div>
+              ))}
             </div>
 
-            {plans.length > 1 && (
-              <div className="flex items-center justify-center gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => goToPlan(-1)}
-                  aria-label="Plano anterior"
-                  className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            {/* Mobile/tablet: carrossel de swipe, um plano por vez — mais
+                confortável numa tela estreita do que espremer 3 cards. */}
+            <div className="lg:hidden max-w-md mx-auto">
+              <div
+                className="overflow-hidden"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div
+                  className="flex transition-transform duration-300 ease-out"
+                  style={{ transform: `translateX(-${planIndex * 100}%)` }}
                 >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="flex items-center gap-2">
-                  {plans.map((p, i) => (
-                    <button
-                      type="button"
-                      key={p.id}
-                      onClick={() => setPlanIndex(i)}
-                      aria-label={`Ver plano ${p.name || BILLING_PLAN_LABELS[p.id]}`}
-                      className={`h-2 rounded-full transition-all ${i === planIndex ? 'w-6 bg-[var(--color-primary)]' : 'w-2 bg-[var(--color-border)]'}`}
-                    />
+                  {plans.map((p) => (
+                    <div key={p.id} className="w-full shrink-0 px-1">
+                      {renderPlanCard(p)}
+                    </div>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => goToPlan(1)}
-                  aria-label="Próximo plano"
-                  className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                >
-                  <ChevronRight size={18} />
-                </button>
               </div>
-            )}
-          </div>
+
+              {plans.length > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => goToPlan(-1)}
+                    aria-label="Plano anterior"
+                    className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {plans.map((p, i) => (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => setPlanIndex(i)}
+                        aria-label={`Ver plano ${p.name || BILLING_PLAN_LABELS[p.id]}`}
+                        className={`h-2 rounded-full transition-all ${i === planIndex ? 'w-6 bg-[var(--color-primary)]' : 'w-2 bg-[var(--color-border)]'}`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => goToPlan(1)}
+                    aria-label="Próximo plano"
+                    className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </section>
 
