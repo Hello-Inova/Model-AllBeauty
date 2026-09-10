@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock,
   Globe,
   Menu,
@@ -191,17 +192,31 @@ export function LandingPage() {
           ))}
         </div>
 
-        {!featuresExpanded && FEATURES.length > FEATURES_COLLAPSED_COUNT && (
+        {FEATURES.length > FEATURES_COLLAPSED_COUNT && (
           <div className="flex justify-center mt-10">
-            <button
-              type="button"
-              onClick={() => setFeaturesExpanded(true)}
-              aria-label="Ver mais recursos"
-              className="group relative flex items-center justify-center h-12 w-12 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-md hover:opacity-90 transition"
-            >
-              <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping-slow" />
-              <ChevronDown size={22} className="relative animate-nudge-down" />
-            </button>
+            {featuresExpanded ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setFeaturesExpanded(false)
+                  document.getElementById('recursos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                aria-label="Ver menos recursos"
+                className="group relative flex items-center justify-center h-12 w-12 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-md hover:opacity-90 transition"
+              >
+                <ChevronUp size={22} className="relative" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFeaturesExpanded(true)}
+                aria-label="Ver mais recursos"
+                className="group relative flex items-center justify-center h-12 w-12 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-md hover:opacity-90 transition"
+              >
+                <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping-slow" />
+                <ChevronDown size={22} className="relative animate-nudge-down" />
+              </button>
+            )}
           </div>
         )}
       </section>
