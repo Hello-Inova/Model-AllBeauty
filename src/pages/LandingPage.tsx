@@ -412,7 +412,12 @@ export function LandingPage() {
                 acima). */}
             <div className="lg:hidden max-w-md mx-auto">
               <div
-                className="overflow-hidden"
+                // pt-4: o card em destaque tem o selo "Melhor custo-benefício"
+                // posicionado com -top-3 (ver renderPlanCard), ou seja,
+                // parcialmente acima da borda do card. Sem essa folga aqui, o
+                // overflow-hidden (necessário para recortar o slide horizontal
+                // do carrossel) também recortava o topo do selo verticalmente.
+                className="overflow-hidden pt-4"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
               >
