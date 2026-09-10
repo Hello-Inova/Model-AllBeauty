@@ -6,6 +6,7 @@ import type {
   BlockedDate,
   Business,
   BusinessBackup,
+  BusinessVideo,
   Category,
   Customer,
   FinanceReport,
@@ -220,6 +221,23 @@ class ApiProvider implements DataRepository {
   }
   async deleteBanner(id: string): Promise<void> {
     await del(`banners${qs({ id })}`)
+  }
+
+  // ---- Vídeos institucionais ------------------------------------------
+  async getVideos(businessId: string): Promise<BusinessVideo[]> {
+    return get(`videos${qs({ businessId })}`)
+  }
+  async createVideo(data: Omit<BusinessVideo, 'id'>): Promise<BusinessVideo> {
+    return post('videos', data)
+  }
+  async updateVideo(id: string, data: Partial<BusinessVideo>): Promise<BusinessVideo> {
+    return patch(`videos${qs({ id })}`, data)
+  }
+  async deleteVideo(id: string): Promise<void> {
+    await del(`videos${qs({ id })}`)
+  }
+  async reorderVideos(businessId: string, orderedIds: string[]): Promise<void> {
+    await patch(`videos${qs({ action: 'reorder' })}`, { businessId, orderedIds })
   }
 
   // ---- Backup / restore -----------------------------------------------

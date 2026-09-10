@@ -244,6 +244,17 @@ CREATE TABLE IF NOT EXISTS banners (
 );
 CREATE INDEX IF NOT EXISTS banners_business_id_idx ON banners (business_id);
 
+-- ---- Vídeos institucionais (até 3 por empresa, até 40s cada) --------------
+CREATE TABLE IF NOT EXISTS business_videos (
+  id           text PRIMARY KEY,
+  business_id  text NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  video        jsonb NOT NULL,
+  title        text,
+  "order"      integer NOT NULL DEFAULT 0,
+  active       boolean NOT NULL DEFAULT true
+);
+CREATE INDEX IF NOT EXISTS business_videos_business_id_idx ON business_videos (business_id);
+
 -- ---- Planos de assinatura (catálogo global, editável pelo Super Admin) -----
 -- id = 'mensal' | 'semestral' | 'anual'. cycle é o valor aceito pelo Asaas em
 -- POST /v3/subscriptions (MONTHLY | SEMIANNUALLY | YEARLY). O preço final

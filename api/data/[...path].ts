@@ -4,10 +4,11 @@ import { getSession, requireSession, requireSuperAdmin, requireBusinessAccess, h
 import {
   rowToBusiness, businessToRow,
   rowToCategory, rowToService, rowToProfessional, rowToCustomer,
-  rowToAppointment, rowToBlockedDate, rowToGalleryImage, rowToTestimonial, rowToBanner,
+  rowToAppointment, rowToBlockedDate, rowToGalleryImage, rowToTestimonial, rowToBanner, rowToBusinessVideo,
   rowToPlan, rowToPlatformSettings, rowToBillingTransaction,
 } from '../_lib/mappers.js'
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
+import { MAX_VIDEOS_PER_BUSINESS } from '../../src/config/index.js'
 
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
@@ -72,6 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (resource === 'gallery') return await gallery(req, res)
     if (resource === 'testimonials') return await testimonials(req, res)
     if (resource === 'banners') return await banners(req, res)
+    if (resource === 'videos') return await videos(req, res)
     if (resource === 'plans') return await plans(req, res)
     if (resource === 'platform-settings') return await platformSettings(req, res)
     if (resource === 'finance') return await finance(req, res)
@@ -173,6 +175,11 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
       VALUES (${b.id}, ${backup.business.id}, ${JSON.stringify(b.image)}, ${b.title ?? null}, ${b.subtitle ?? null}, ${b.link ?? null}, ${b.active ?? true}, ${b.order ?? 0})
     ` as unknown as Promise<void>)
 
+    await replace('business_videos', backup.videos ?? [], (v) => sql`
+      INSERT INTO business_videos (id, business_id, video, title, "order", active)
+      VALUES (${v.id}, ${backup.business.id}, ${JSON.stringify(v.video)}, ${v.title ?? null}, ${v.order ?? 0}, ${v.active ?? true})
+    ` as unknown as Promise<void>)
+
     await replace('blocked_dates', backup.blockedDates ?? [], (d) => sql`
       INSERT INTO blocked_dates (id, business_id, professional_id, date, all_day, start_time, end_time, reason)
       VALUES (${d.id}, ${backup.business.id}, ${d.professionalId ?? null}, ${d.date}, ${d.allDay ?? true}, ${d.startTime ?? null}, ${d.endTime ?? null}, ${d.reason ?? null})
@@ -231,7 +238,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
     requireBusinessAccess(session, id)
     const biz = await sql`SELECT * FROM businesses WHERE id = ${id}`
     if (biz.rows.length === 0) notFound('Empresa')
-    const [cat, srv, pro, cus, apt, gal, tst, ban, blk] = await Promise.all([
+    const [cat, srv, pro, cus, apt, gal, tst, ban, vid, blk] = await Promise.all([
       sql`SELECT * FROM categories WHERE business_id = ${id} ORDER BY "order"`,
       sql`SELECT * FROM services WHERE business_id = ${id} ORDER BY "order"`,
       sql`SELECT * FROM professionals WHERE business_id = ${id} ORDER BY "order"`,
@@ -240,6 +247,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
       sql`SELECT * FROM gallery_images WHERE business_id = ${id} ORDER BY "order"`,
       sql`SELECT * FROM testimonials WHERE business_id = ${id} ORDER BY "order"`,
       sql`SELECT * FROM banners WHERE business_id = ${id} ORDER BY "order"`,
+      sql`SELECT * FROM business_videos WHERE business_id = ${id} ORDER BY "order"`,
       sql`SELECT * FROM blocked_dates WHERE business_id = ${id}`,
     ])
     return res.status(200).json({
@@ -252,6 +260,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
       gallery: gal.rows.map(rowToGalleryImage),
       testimonials: tst.rows.map(rowToTestimonial),
       banners: ban.rows.map(rowToBanner),
+      videos: vid.rows.map(rowToBusinessVideo),
       blockedDates: blk.rows.map(rowToBlockedDate),
       exportedAt: new Date().toISOString(),
       version: 1,
@@ -768,6 +777,66 @@ async function banners(req: VercelRequest, res: VercelResponse) {
     }
   }
   res.status(404).json({ error: 'Rota de banners não encontrada.' })
+}
+
+// ---- Vídeos institucionais (até 3 por empresa, até 40s cada) ---------------
+async function videos(req: VercelRequest, res: VercelResponse) {
+  const method = req.method
+  const id = strParam(req, 'id')
+  const action = strParam(req, 'action')
+
+  if (action === 'reorder' && method === 'PATCH') {
+    const { businessId, orderedIds } = readBody(req)
+    const session = await requireSession(req)
+    requireBusinessAccess(session, businessId)
+    for (let i = 0; i < (orderedIds ?? []).length; i++) {
+      await sql`UPDATE business_videos SET "order" = ${i} WHERE id = ${orderedIds[i]} AND business_id = ${businessId}`
+    }
+    return res.status(200).json({ ok: true })
+  }
+
+  if (id === undefined) {
+    const businessId = strParam(req, 'businessId') ?? ''
+    if (method === 'GET') {
+      if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
+      const { rows } = await sql`SELECT * FROM business_videos WHERE business_id = ${businessId} ORDER BY "order"`
+      return res.status(200).json(rows.map(rowToBusinessVideo))
+    }
+    if (method === 'POST') {
+      const body = readBody(req)
+      const session = await requireSession(req)
+      requireBusinessAccess(session, body.businessId)
+      // Aplicado no servidor também (não só na UI) — defesa contra
+      // chamadas diretas à API além do limite de 3 vídeos por empresa.
+      const existing = await sql`SELECT COUNT(*)::int AS n FROM business_videos WHERE business_id = ${body.businessId}`
+      if ((existing.rows[0]?.n ?? 0) >= MAX_VIDEOS_PER_BUSINESS) {
+        throw new ApiError(400, `Limite de ${MAX_VIDEOS_PER_BUSINESS} vídeos atingido. Remova um vídeo para adicionar outro.`)
+      }
+      const newId = makeId('vid')
+      await sql`
+        INSERT INTO business_videos (id, business_id, video, title, "order", active)
+        VALUES (${newId}, ${body.businessId}, ${JSON.stringify(body.video)}, ${body.title ?? null}, ${body.order ?? 0}, ${body.active ?? true})
+      `
+      const created = await sql`SELECT * FROM business_videos WHERE id = ${newId}`
+      return res.status(201).json(rowToBusinessVideo(created.rows[0]))
+    }
+  } else {
+    const bizId = await businessIdOf('business_videos', id)
+    const session = await requireSession(req)
+    requireBusinessAccess(session, bizId)
+    if (method === 'PATCH') {
+      const existing = await sql`SELECT * FROM business_videos WHERE id = ${id}`
+      const merged = { ...rowToBusinessVideo(existing.rows[0]), ...readBody(req) }
+      await sql`UPDATE business_videos SET video = ${JSON.stringify(merged.video)}, title = ${merged.title ?? null}, "order" = ${merged.order}, active = ${merged.active} WHERE id = ${id}`
+      const updated = await sql`SELECT * FROM business_videos WHERE id = ${id}`
+      return res.status(200).json(rowToBusinessVideo(updated.rows[0]))
+    }
+    if (method === 'DELETE') {
+      await sql`DELETE FROM business_videos WHERE id = ${id}`
+      return res.status(204).end()
+    }
+  }
+  res.status(404).json({ error: 'Rota de vídeos não encontrada.' })
 }
 
 // ---- Planos de assinatura (catálogo global) --------------------------------

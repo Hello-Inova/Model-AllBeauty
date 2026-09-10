@@ -28,6 +28,7 @@ export const adminRoutes = {
   customers: (slug: string) => `/admin/${slug}/clientes`,
   gallery: (slug: string) => `/admin/${slug}/galeria`,
   testimonials: (slug: string) => `/admin/${slug}/depoimentos`,
+  videos: (slug: string) => `/admin/${slug}/videos`,
   settings: (slug: string) => `/admin/${slug}/configuracoes`,
   backup: (slug: string) => `/admin/${slug}/backup`,
   subscription: (slug: string) => `/admin/${slug}/assinatura`,

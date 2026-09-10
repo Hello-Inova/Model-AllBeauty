@@ -88,3 +88,26 @@ body {
   75%, 100% { transform: scale(1.7); opacity: 0; }
 }
 .animate-ping-slow { animation: ping-slow 2.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* Scroll-triggered reveal used across the Organyze landing page (see
+   src/components/Reveal.tsx) — a gentle fade + rise, nothing flashy. */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Gentle up/down float, used for small decorative icons/badges. */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float-slow { animation: float-slow 4s ease-in-out infinite; }
+
+/* Nudges a "scroll/expand for more" chevron down and back — paired with
+   .animate-ping-slow behind it for the "Tudo em um só lugar" expand button. */
+@keyframes nudge-down {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+.animate-nudge-down { animation: nudge-down 1.6s ease-in-out infinite; }

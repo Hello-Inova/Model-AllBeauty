@@ -34,4 +34,12 @@ export const messages = {
     loadFailed: 'Não foi possível carregar esta imagem.',
     invalidUrl: 'URL da imagem inválida.',
   },
+  invalidVideo: {
+    format: 'Formato de vídeo não suportado. Use MP4, WebM ou MOV.',
+    tooLarge: 'O vídeo é muito grande.',
+    tooLong: 'O vídeo deve ter no máximo 40 segundos.',
+    loadFailed: 'Não foi possível carregar este vídeo.',
+    invalidUrl: 'URL do vídeo inválida.',
+    limitReached: 'Limite de 3 vídeos atingido. Remova um vídeo para adicionar outro.',
+  },
 }

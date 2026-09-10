@@ -4,6 +4,7 @@ import type {
   Appointment,
   Banner,
   BlockedDate,
+  BusinessVideo,
   Category,
   Customer,
   GalleryImage,
@@ -80,6 +81,10 @@ export function useTestimonials(businessId: string | undefined) {
 
 export function useBanners(businessId: string | undefined) {
   return useBusinessCollection<Banner>(businessId, (id) => dataRepository.getBanners(id))
+}
+
+export function useVideos(businessId: string | undefined) {
+  return useBusinessCollection<BusinessVideo>(businessId, (id) => dataRepository.getVideos(id))
 }
 
 export function useBlockedDates(businessId: string | undefined) {

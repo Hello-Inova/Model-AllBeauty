@@ -1,5 +1,5 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type LabelHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, forwardRef, useState } from 'react'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type LabelHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes, forwardRef, useEffect, useRef, useState } from 'react'
+import { Loader2, Eye, EyeOff, ChevronDown } from 'lucide-react'
 
 // ---- Button -----------------------------------------------------------------
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline'
@@ -110,6 +110,112 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     </select>
   )
 })
+
+interface ComboboxProps {
+  value: string
+  onChange: (value: string) => void
+  options: string[]
+  placeholder?: string
+  emptyMessage?: string
+  error?: boolean
+  /** Fired when the user picks a suggestion (click or Enter on the highlighted item). */
+  onSelect?: (option: string) => void
+}
+
+/**
+ * Free-typing autocomplete combobox: filters `options` live as the user
+ * types, with keyboard navigation (arrows/enter/escape) and click-outside
+ * to close. Built for the signup segment field, but generic enough to
+ * reuse anywhere a "type-to-filter, pick from a list" input is needed.
+ */
+export function Combobox({ value, onChange, options, placeholder, emptyMessage = 'Nenhuma opção encontrada.', error, onSelect }: ComboboxProps) {
+  const [open, setOpen] = useState(false)
+  const [highlighted, setHighlighted] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const query = value.trim().toLowerCase()
+  const filtered = query ? options.filter((o) => o.toLowerCase().includes(query)) : options
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => setHighlighted(0), [value, open])
+
+  function choose(option: string) {
+    onChange(option)
+    onSelect?.(option)
+    setOpen(false)
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+      setOpen(true)
+      return
+    }
+    if (!open) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlighted((i) => Math.min(i + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlighted((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (filtered[highlighted]) choose(filtered[highlighted])
+    } else if (e.key === 'Escape') {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <Input
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          role="combobox"
+          aria-expanded={open}
+          autoComplete="off"
+          error={error}
+          className="pr-9"
+        />
+        <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)]" />
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg py-1">
+          {filtered.length === 0 ? (
+            <p className="px-3.5 py-2 text-sm text-[var(--color-muted-foreground)]">{emptyMessage}</p>
+          ) : (
+            filtered.map((option, i) => (
+              <button
+                type="button"
+                key={option}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => choose(option)}
+                className={`w-full text-left px-3.5 py-2 text-sm transition ${
+                  i === highlighted ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'hover:bg-[var(--color-muted)]'
+                }`}
+              >
+                {option}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function Checkbox({ label, ...rest }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (

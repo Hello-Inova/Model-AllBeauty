@@ -661,6 +661,7 @@ export function buildDemoBackup(): BusinessBackup {
     gallery,
     testimonials,
     banners,
+    videos: [],
     blockedDates,
     exportedAt: now,
     version: 1,

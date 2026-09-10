@@ -270,3 +270,14 @@ export function rowToBanner(r: any) {
     order: r.order,
   }
 }
+
+export function rowToBusinessVideo(r: any) {
+  return {
+    id: r.id,
+    businessId: r.business_id,
+    video: r.video,
+    title: r.title ?? undefined,
+    order: r.order,
+    active: r.active,
+  }
+}

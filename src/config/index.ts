@@ -13,4 +13,15 @@ export const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
 export const MAX_UPLOAD_IMAGE_BYTES = 4 * 1024 * 1024 // 4MB
 export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 
+// ---- Vídeos institucionais (por empresa) -----------------------------------
+// Até 3 vídeos por empresa, cada um com no máximo 40 segundos — ver a seção
+// "Vídeos" do painel admin (VideosAdminPage) e da vitrine pública (HomePage).
+// O limite de bytes é generoso pois o upload vai direto do navegador para o
+// Vercel Blob (ver api/upload-video.ts), sem passar pelo limite de corpo de
+// requisição das Serverless Functions.
+export const MAX_VIDEOS_PER_BUSINESS = 3
+export const MAX_VIDEO_DURATION_SECONDS = 40
+export const MAX_UPLOAD_VIDEO_BYTES = 60 * 1024 * 1024 // 60MB
+export const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
+
 export const REPO_URL = 'https://github.com/Hello-Inova/Model-AllBeauty'

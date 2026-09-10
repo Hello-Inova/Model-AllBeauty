@@ -25,6 +25,7 @@ import { CategoriesAdminPage } from './pages/admin/CategoriesAdminPage'
 import { ProfessionalsAdminPage } from './pages/admin/ProfessionalsAdminPage'
 import { CustomersAdminPage } from './pages/admin/CustomersAdminPage'
 import { GalleryAdminPage } from './pages/admin/GalleryAdminPage'
+import { VideosAdminPage } from './pages/admin/VideosAdminPage'
 import { TestimonialsAdminPage } from './pages/admin/TestimonialsAdminPage'
 import { SettingsAdminPage } from './pages/admin/SettingsAdminPage'
 import { BackupAdminPage } from './pages/admin/BackupAdminPage'
@@ -74,6 +75,7 @@ export default function AppRouter() {
               <Route path="profissionais" element={<ProfessionalsAdminPage />} />
               <Route path="clientes" element={<CustomersAdminPage />} />
               <Route path="galeria" element={<GalleryAdminPage />} />
+              <Route path="videos" element={<VideosAdminPage />} />
               <Route path="depoimentos" element={<TestimonialsAdminPage />} />
               <Route path="configuracoes" element={<SettingsAdminPage />} />
               <Route path="backup" element={<BackupAdminPage />} />

@@ -5,6 +5,7 @@ import type {
   BlockedDate,
   Business,
   BusinessBackup,
+  BusinessVideo,
   Category,
   Customer,
   FinanceReport,
@@ -105,6 +106,13 @@ export interface DataRepository {
   createBanner(data: Omit<Banner, 'id'>): Promise<Banner>
   updateBanner(id: string, data: Partial<Banner>): Promise<Banner>
   deleteBanner(id: string): Promise<void>
+
+  // ---- Vídeos institucionais ------------------------------------------
+  getVideos(businessId: string): Promise<BusinessVideo[]>
+  createVideo(data: Omit<BusinessVideo, 'id'>): Promise<BusinessVideo>
+  updateVideo(id: string, data: Partial<BusinessVideo>): Promise<BusinessVideo>
+  deleteVideo(id: string): Promise<void>
+  reorderVideos(businessId: string, orderedIds: string[]): Promise<void>
 
   // ---- Backup / restore -----------------------------------------------
   exportBusinessBackup(businessId: string): Promise<BusinessBackup>

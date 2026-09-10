@@ -32,6 +32,17 @@ export interface ImageAsset {
   createdAt: string
 }
 
+/** A managed video: either a remote URL or an uploaded (Vercel Blob) file. Mirrors ImageAsset. */
+export interface VideoAsset {
+  id: ID
+  type: ImageSourceType
+  url: string
+  storageKey?: string
+  alt?: string
+  durationSeconds?: number
+  createdAt: string
+}
+
 export type BookingDepositPolicy = 'none' | 'deposit' | 'full_payment' | 'pay_on_site'
 
 export interface BookingPolicies {
@@ -290,6 +301,21 @@ export interface Banner {
   order: number
 }
 
+/**
+ * Vídeo institucional configurado pelo admin de cada empresa (até 3, até 40s
+ * cada — ver MAX_VIDEOS_PER_BUSINESS/MAX_VIDEO_DURATION_SECONDS em
+ * src/config). Exibido na seção pública "Vídeos" — em carrossel quando há
+ * mais de 1 vídeo ativo.
+ */
+export interface BusinessVideo {
+  id: ID
+  businessId: ID
+  video: VideoAsset
+  title?: string
+  order: number
+  active: boolean
+}
+
 export type AdminRole = 'super_admin' | 'owner' | 'manager' | 'staff'
 
 export interface AdminUser {
@@ -313,6 +339,7 @@ export interface BusinessBackup {
   gallery: GalleryImage[]
   testimonials: Testimonial[]
   banners: Banner[]
+  videos: BusinessVideo[]
   blockedDates: BlockedDate[]
   exportedAt: string
   version: number

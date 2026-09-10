@@ -5,6 +5,7 @@ import {
   CalendarCheck2,
   Camera,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -23,9 +24,13 @@ import {
 import { dataRepository } from '../repositories'
 import type { BillingPlanDef } from '../types'
 import { Button } from '../components/Form'
+import { Reveal } from '../components/Reveal'
+import { Carousel } from '../components/public/Carousel'
 import { APP_NAME, DEFAULT_BUSINESS_SLUG } from '../config'
 import { platformRoutes, publicRoutes, legalRoutes } from '../utils/routes'
 import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents } from '../utils/billing'
+
+const FEATURES_COLLAPSED_COUNT = 3
 
 const FEATURES = [
   { icon: Globe, title: 'Site profissional', text: 'Um site bonito e rápido para o seu negócio, pronto em minutos — sem precisar contratar ninguém.' },
@@ -48,6 +53,7 @@ export function LandingPage() {
   const [plans, setPlans] = useState<BillingPlanDef[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const [planIndex, setPlanIndex] = useState(0)
+  const [featuresExpanded, setFeaturesExpanded] = useState(false)
   const touchStartX = useRef<number | null>(null)
 
   useEffect(() => {
@@ -143,22 +149,22 @@ export function LandingPage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-muted)] to-transparent" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 text-center">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1.5 rounded-full">
-            <Sparkles size={13} /> Para salões, clínicas e profissionais da beleza
+          <span className="animate-float-slow inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1.5 rounded-full">
+            <Sparkles size={13} className="animate-pulse" /> Para salões, clínicas e profissionais da beleza
           </span>
-          <h1 className="font-heading text-3xl sm:text-5xl font-semibold mt-5 max-w-3xl mx-auto leading-tight">
+          <h1 className="animate-fade-in-up font-heading text-3xl sm:text-5xl font-semibold mt-5 max-w-3xl mx-auto leading-tight">
             O site e a agenda online do seu negócio, prontos em minutos
           </h1>
-          <p className="text-base sm:text-lg text-[var(--color-muted-foreground)] mt-5 max-w-xl mx-auto">
+          <p className="animate-fade-in-up text-base sm:text-lg text-[var(--color-muted-foreground)] mt-5 max-w-xl mx-auto" style={{ animationDelay: '100ms' }}>
             Crie sua conta, escolha um plano e ganhe um site profissional com agendamento online, painel administrativo completo e a
             identidade visual do seu negócio — sem precisar contratar um desenvolvedor.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-8">
+          <div className="animate-fade-in-up flex flex-col sm:flex-row items-center justify-center gap-3 mt-8" style={{ animationDelay: '200ms' }}>
             <Link to={platformRoutes.signup}>
-              <Button size="lg" icon={<Rocket size={18} />}>Criar meu site agora</Button>
+              <Button size="lg" icon={<Rocket size={18} />} className="transition-transform hover:scale-105 active:scale-95">Criar meu site agora</Button>
             </Link>
             <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)}>
-              <Button size="lg" variant="outline">Ver site de demonstração</Button>
+              <Button size="lg" variant="outline" className="transition-transform hover:scale-105 active:scale-95">Ver site de demonstração</Button>
             </Link>
           </div>
           <p className="text-xs text-[var(--color-muted-foreground)] mt-4">Sua conta e seu site ficam prontos na hora — o pagamento você faz depois, direto no painel.</p>
@@ -167,56 +173,76 @@ export function LandingPage() {
 
       {/* Features */}
       <section id="recursos" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-        <div className="text-center max-w-xl mx-auto mb-12">
+        <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Tudo em um só lugar</span>
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Feito para o dia a dia do seu negócio</h2>
-        </div>
+        </Reveal>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 flex flex-col gap-3">
-              <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
-                <f.icon size={20} />
+          {(featuresExpanded ? FEATURES : FEATURES.slice(0, FEATURES_COLLAPSED_COUNT)).map((f, i) => (
+            <Reveal key={f.title} delay={(i % FEATURES_COLLAPSED_COUNT) * 80}>
+              <div className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 flex flex-col gap-3 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-[var(--color-primary)]/40">
+                <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6">
+                  <f.icon size={20} />
+                </div>
+                <h3 className="font-heading font-semibold text-sm">{f.title}</h3>
+                <p className="text-sm text-[var(--color-muted-foreground)]">{f.text}</p>
               </div>
-              <h3 className="font-heading font-semibold text-sm">{f.title}</h3>
-              <p className="text-sm text-[var(--color-muted-foreground)]">{f.text}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
+
+        {!featuresExpanded && FEATURES.length > FEATURES_COLLAPSED_COUNT && (
+          <div className="flex justify-center mt-10">
+            <button
+              type="button"
+              onClick={() => setFeaturesExpanded(true)}
+              aria-label="Ver mais recursos"
+              className="group relative flex items-center justify-center h-12 w-12 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-md hover:opacity-90 transition"
+            >
+              <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping-slow" />
+              <ChevronDown size={22} className="relative animate-nudge-down" />
+            </button>
+          </div>
+        )}
       </section>
 
       {/* How it works */}
-      <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20">
+      <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20 overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-xl mx-auto mb-12">
+          <Reveal className="text-center max-w-xl mx-auto mb-12">
             <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Simples assim</span>
             <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Como funciona</h2>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {STEPS.map((s, i) => (
-              <div key={s.title} className="flex flex-col items-center text-center gap-3">
-                <div className="relative">
-                  <div className="h-14 w-14 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] flex items-center justify-center">
-                    <s.icon size={24} />
-                  </div>
-                  <span className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-semibold flex items-center justify-center">
+          </Reveal>
+
+          <Reveal delay={100}>
+            <Carousel itemClassName="w-[82%] xs:w-[70%] sm:w-[320px]">
+              {STEPS.map((s, i) => (
+                <div key={s.title} className="relative h-full flex flex-col items-center text-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] px-6 pt-10 pb-8">
+                  <span className="absolute top-4 left-1/2 -translate-x-1/2 font-heading text-6xl font-bold text-[var(--color-primary)]/10 select-none">
                     {i + 1}
                   </span>
+                  <div className="relative flex flex-col items-center gap-4 w-full">
+                    <div className="relative flex items-center justify-center h-16 w-16 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-lg shadow-[var(--color-primary)]/30 transition-transform duration-300 hover:scale-110">
+                      <s.icon size={26} />
+                      <span className="absolute inset-0 rounded-full border-2 border-dashed border-[var(--color-primary)]/40 scale-125" />
+                    </div>
+                    <h3 className="font-heading font-semibold text-lg">{s.title}</h3>
+                    <p className="text-sm text-[var(--color-muted-foreground)] max-w-xs">{s.text}</p>
+                  </div>
                 </div>
-                <h3 className="font-heading font-semibold">{s.title}</h3>
-                <p className="text-sm text-[var(--color-muted-foreground)] max-w-xs">{s.text}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </Carousel>
+          </Reveal>
         </div>
       </section>
 
       {/* Pricing */}
       <section id="planos" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-        <div className="text-center max-w-xl mx-auto mb-12">
+        <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Sem surpresas</span>
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Planos para todo tamanho de negócio</h2>
           <p className="text-sm text-[var(--color-muted-foreground)] mt-2">Quanto maior o ciclo, maior o desconto. Cancele quando quiser.</p>
-        </div>
+        </Reveal>
         {plans.length === 0 ? (
           <p className="text-sm text-[var(--color-muted-foreground)] text-center">Carregando planos…</p>
         ) : (
@@ -259,7 +285,7 @@ export function LandingPage() {
                           ))}
                         </ul>
                         <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
-                          <Button variant={featured ? 'primary' : 'outline'} className="w-full">Escolher este plano</Button>
+                          <Button variant={featured ? 'primary' : 'outline'} className="w-full transition-transform hover:scale-[1.03] active:scale-95">Escolher este plano</Button>
                         </Link>
                       </div>
                     </div>
@@ -305,16 +331,16 @@ export function LandingPage() {
 
       {/* Final CTA */}
       <section className="bg-[var(--color-secondary)] text-[var(--color-secondary-foreground)]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center flex flex-col items-center gap-5">
-          <Clock size={28} className="opacity-70" />
+        <Reveal className="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center flex flex-col items-center gap-5">
+          <Clock size={28} className="opacity-70 animate-float-slow" />
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold">Comece a receber agendamentos hoje mesmo</h2>
           <p className="text-sm sm:text-base opacity-80 max-w-lg">
             Crie sua conta agora — leva menos de 2 minutos, e você não precisa saber nada de tecnologia.
           </p>
           <Link to={platformRoutes.signup}>
-            <Button size="lg" icon={<ArrowRight size={18} />}>Criar meu site grátis</Button>
+            <Button size="lg" icon={<ArrowRight size={18} />} className="transition-transform hover:scale-105 active:scale-95">Criar meu site grátis</Button>
           </Link>
-        </div>
+        </Reveal>
       </section>
 
       {/* Footer */}

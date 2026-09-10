@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarPlus } from 'lucide-react'
 import { useCurrentBusiness } from '../../contexts/BusinessContext'
-import { useCategories, useGallery, useProfessionals, useServices, useTestimonials } from '../../hooks/useEntities'
+import { useCategories, useGallery, useProfessionals, useServices, useTestimonials, useVideos } from '../../hooks/useEntities'
 import { Hero } from '../../components/public/Hero'
 import { ServiceCard } from '../../components/public/ServiceCard'
 import { ProfessionalCard } from '../../components/public/ProfessionalCard'
@@ -37,12 +37,14 @@ export function HomePage() {
   const { data: professionals } = useProfessionals(business.id)
   const { data: gallery } = useGallery(business.id)
   const { data: testimonials } = useTestimonials(business.id)
+  const { data: videos } = useVideos(business.id)
 
   const featured = services.filter((s) => s.active && s.featured).slice(0, 6)
   const shownServices = featured.length > 0 ? featured : services.filter((s) => s.active).slice(0, 6)
   const activeProfessionals = professionals.filter((p) => p.active)
   const activeTestimonials = testimonials.filter((t) => t.active)
   const activeGallery = gallery.filter((g) => g.active).slice(0, 8)
+  const activeVideos = [...videos].filter((v) => v.active).sort((a, b) => a.order - b.order)
 
   return (
     <div>
@@ -95,6 +97,25 @@ export function HomePage() {
             <SectionHeading eyebrow="Ambiente" title="Galeria" action={{ to: publicRoutes.gallery(business.slug), label: 'Ver galeria completa' }} />
             <Gallery images={activeGallery} />
           </div>
+        </section>
+      )}
+
+      {activeVideos.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
+          <SectionHeading eyebrow="Vídeos" title="Conheça nosso trabalho" />
+          {activeVideos.length > 1 ? (
+            <Carousel itemClassName="w-[300px] sm:w-[380px]">
+              {activeVideos.map((v) => (
+                <div key={v.id} className="rounded-xl overflow-hidden bg-black aspect-video">
+                  <video src={v.video.url} controls playsInline muted className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </Carousel>
+          ) : (
+            <div className="max-w-xl mx-auto rounded-xl overflow-hidden bg-black aspect-video">
+              <video src={activeVideos[0].video.url} controls playsInline muted className="w-full h-full object-cover" />
+            </div>
+          )}
         </section>
       )}
 
