@@ -11,7 +11,8 @@ import {
   registerFailedLoginAttempt,
   clearLoginAttempts,
   invalidCredentialsMessage,
-  LOGIN_LOCKOUT_MESSAGE,
+  LOGIN_ATTEMPT_LIMIT,
+  LOGIN_RECOVERY_MESSAGE,
   generatePasswordResetToken,
   hashPasswordResetToken,
   PASSWORD_RESET_TTL_SECONDS,
@@ -192,6 +193,29 @@ async function register(req: VercelRequest, res: VercelResponse) {
   })
 }
 
+/**
+ * Registra uma tentativa de login falha para `scope`. Ao atingir o limite
+ * diário (3ª senha errada), em vez de só bloquear até amanhã, dispara na
+ * hora o mesmo fluxo de "esqueci minha senha" já usado na tela de login
+ * (gera token, envia e-mail) — quem errou a senha recebe um link pra
+ * redefini-la, em vez de ficar bloqueado até o dia seguinte. Só envia o
+ * e-mail nessa 3ª tentativa; tentativas seguintes no mesmo dia (já
+ * bloqueadas) repetem a mesma mensagem sem reenviar.
+ */
+async function failLoginAttempt(
+  req: VercelRequest,
+  res: VercelResponse,
+  scope: string,
+  account: { businessSlug?: string; email: string },
+) {
+  const count = await registerFailedLoginAttempt(scope)
+  if (count >= LOGIN_ATTEMPT_LIMIT) {
+    await sendPasswordResetEmail(req, { businessSlug: account.businessSlug, email: account.email, reason: 'failed-attempts' })
+    return res.status(429).json({ error: LOGIN_RECOVERY_MESSAGE, recoveryTriggered: true })
+  }
+  return res.status(401).json({ error: invalidCredentialsMessage(count) })
+}
+
 async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   const { businessSlug, email, password } = readBody(req)
   if (!businessSlug || !email || !password) {
@@ -202,12 +226,11 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   // consulta — assim uma empresa/e-mail inexistente também é limitada,
   // em vez de dar tentativas ilimitadas para "descobrir" contas válidas.
   const scope = `admin:${String(businessSlug).toLowerCase()}:${String(email).toLowerCase()}`
-  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_LOCKOUT_MESSAGE })
+  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_RECOVERY_MESSAGE, recoveryTriggered: true })
 
   const biz = await sql`SELECT id, slug FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
   if (biz.rows.length === 0) {
-    const count = await registerFailedLoginAttempt(scope)
-    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+    return await failLoginAttempt(req, res, scope, { businessSlug, email })
   }
   const business = biz.rows[0]
 
@@ -217,13 +240,11 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   `
   const admin = admins.rows[0]
   if (!admin || !admin.active) {
-    const count = await registerFailedLoginAttempt(scope)
-    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+    return await failLoginAttempt(req, res, scope, { businessSlug, email })
   }
   const ok = await verifyPassword(password, admin.password_hash)
   if (!ok) {
-    const count = await registerFailedLoginAttempt(scope)
-    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+    return await failLoginAttempt(req, res, scope, { businessSlug, email })
   }
   await clearLoginAttempts(scope)
 
@@ -239,7 +260,7 @@ async function loginSuper(req: VercelRequest, res: VercelResponse) {
   if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' })
 
   const scope = `super:${String(email).toLowerCase()}`
-  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_LOCKOUT_MESSAGE })
+  if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_RECOVERY_MESSAGE, recoveryTriggered: true })
 
   const admins = await sql`
     SELECT id, email, password_hash, active FROM admin_users
@@ -247,13 +268,11 @@ async function loginSuper(req: VercelRequest, res: VercelResponse) {
   `
   const admin = admins.rows[0]
   if (!admin || !admin.active) {
-    const count = await registerFailedLoginAttempt(scope)
-    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+    return await failLoginAttempt(req, res, scope, { email })
   }
   const ok = await verifyPassword(password, admin.password_hash)
   if (!ok) {
-    const count = await registerFailedLoginAttempt(scope)
-    return res.status(401).json({ error: invalidCredentialsMessage(count) })
+    return await failLoginAttempt(req, res, scope, { email })
   }
   await clearLoginAttempts(scope)
 
@@ -357,8 +376,21 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function passwordResetEmailHtml(opts: { resetUrl: string; businessName?: string }): string {
+function passwordResetEmailHtml(opts: { resetUrl: string; businessName?: string; reason?: 'requested' | 'failed-attempts' }): string {
   const context = opts.businessName ? `da sua conta em <strong>${escapeHtml(opts.businessName)}</strong>` : 'da sua conta de Super Admin'
+  // reason distingue o clique manual em "Esqueci minha senha" do disparo
+  // automático depois de 3 senhas erradas seguidas — no segundo caso, é mais
+  // honesto avisar que foram tentativas com senha incorreta, não um "pedido"
+  // (também serve de alerta: se não foi a própria pessoa tentando, ela fica
+  // sabendo que alguém tentou a senha da conta).
+  const intro =
+    opts.reason === 'failed-attempts'
+      ? `Detectamos 3 tentativas seguidas de login com a senha incorreta ${context}. Por segurança, geramos automaticamente um link para você redefinir sua senha:`
+      : `Recebemos um pedido de redefinição de senha ${context}. Se foi você, clique no botão abaixo para escolher uma nova senha:`
+  const footer =
+    opts.reason === 'failed-attempts'
+      ? 'O link expira em 1 hora. Se essas tentativas não foram suas, redefina a senha agora por segurança — e considere revisar quem tem acesso a ela.'
+      : 'O link expira em 1 hora. Se você não pediu essa redefinição, pode ignorar este e-mail — sua senha continua a mesma.'
   return `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background:#f5f1ea;">
@@ -374,11 +406,11 @@ function passwordResetEmailHtml(opts: { resetUrl: string; businessName?: string 
             <tr>
               <td style="padding:32px;color:#221b15;">
                 <h1 style="font-size:18px;margin:0 0 16px;">Redefinir senha</h1>
-                <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">Recebemos um pedido de redefinição de senha ${context}. Se foi você, clique no botão abaixo para escolher uma nova senha:</p>
+                <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">${intro}</p>
                 <p style="text-align:center;margin:28px 0;">
                   <a href="${opts.resetUrl}" style="background:#b3873e;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;display:inline-block;">Redefinir minha senha</a>
                 </p>
-                <p style="font-size:12px;line-height:1.6;color:#6b625a;margin:0 0 8px;">O link expira em 1 hora. Se você não pediu essa redefinição, pode ignorar este e-mail — sua senha continua a mesma.</p>
+                <p style="font-size:12px;line-height:1.6;color:#6b625a;margin:0 0 8px;">${footer}</p>
                 <p style="font-size:12px;line-height:1.6;color:#6b625a;margin:0;">Se o botão não funcionar, copie e cole este link no navegador:<br /><a href="${opts.resetUrl}" style="color:#b3873e;word-break:break-all;">${opts.resetUrl}</a></p>
               </td>
             </tr>
@@ -388,6 +420,66 @@ function passwordResetEmailHtml(opts: { resetUrl: string; businessName?: string 
     </table>
   </body>
 </html>`
+}
+
+/**
+ * Núcleo compartilhado do envio do e-mail de redefinição de senha — usado
+ * tanto pelo clique manual em "Esqueci minha senha" (forgotPassword) quanto
+ * pelo disparo automático após 3 senhas erradas (failLoginAttempt). Mantém a
+ * mesma propriedade anti-enumeração do fluxo original: não faz nada (nem dá
+ * erro) se a conta não existir, então o chamador nunca revela se um e-mail
+ * está cadastrado ou não.
+ */
+async function sendPasswordResetEmail(
+  req: VercelRequest,
+  { businessSlug, email, reason }: { businessSlug?: string; email: string; reason: 'requested' | 'failed-attempts' },
+): Promise<void> {
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+
+  let admin: { id: string; email: string } | undefined
+  let businessName: string | undefined
+
+  if (businessSlug) {
+    const biz = await sql`SELECT id, display_name FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
+    if (biz.rows.length > 0) {
+      const admins = await sql`
+        SELECT id, email FROM admin_users
+        WHERE business_id = ${biz.rows[0].id} AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
+      `
+      admin = admins.rows[0]
+      businessName = biz.rows[0].display_name
+    }
+  } else {
+    const admins = await sql`
+      SELECT id, email FROM admin_users
+      WHERE business_id IS NULL AND role = 'super_admin' AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
+    `
+    admin = admins.rows[0]
+  }
+
+  if (!admin) return
+
+  const rawToken = generatePasswordResetToken()
+  const tokenId = makeId('prt')
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000)
+  await sql`
+    INSERT INTO password_reset_tokens (id, admin_user_id, token_hash, expires_at)
+    VALUES (${tokenId}, ${admin.id}, ${hashPasswordResetToken(rawToken)}, ${expiresAt.toISOString()})
+  `
+
+  const resetUrl = `${requestOrigin(req)}/redefinir-senha?token=${rawToken}`
+  try {
+    await sendEmail({
+      to: admin.email,
+      subject: reason === 'failed-attempts' ? 'Detectamos tentativas de login na sua conta — Organyze' : 'Redefinir sua senha — Organyze',
+      html: passwordResetEmailHtml({ resetUrl, businessName, reason }),
+    })
+  } catch (e) {
+    // Não propaga o erro pro cliente — a resposta continua a mesma genérica
+    // de sempre, pra não diferenciar "e-mail não existe" de "Resend falhou".
+    // Fica registrado no log da função pra investigação.
+    console.error('Falha ao enviar e-mail de redefinição de senha:', e)
+  }
 }
 
 /**
@@ -413,50 +505,7 @@ async function forgotPassword(req: VercelRequest, res: VercelResponse) {
 
   const genericMessage = 'Se este e-mail estiver cadastrado, enviamos um link para redefinir a senha. Confira também a caixa de spam.'
 
-  let admin: { id: string; email: string } | undefined
-  let businessName: string | undefined
-
-  if (businessSlug) {
-    const biz = await sql`SELECT id, display_name FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
-    if (biz.rows.length > 0) {
-      const admins = await sql`
-        SELECT id, email FROM admin_users
-        WHERE business_id = ${biz.rows[0].id} AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
-      `
-      admin = admins.rows[0]
-      businessName = biz.rows[0].display_name
-    }
-  } else {
-    const admins = await sql`
-      SELECT id, email FROM admin_users
-      WHERE business_id IS NULL AND role = 'super_admin' AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
-    `
-    admin = admins.rows[0]
-  }
-
-  if (!admin) return res.status(200).json({ ok: true, message: genericMessage })
-
-  const rawToken = generatePasswordResetToken()
-  const tokenId = makeId('prt')
-  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000)
-  await sql`
-    INSERT INTO password_reset_tokens (id, admin_user_id, token_hash, expires_at)
-    VALUES (${tokenId}, ${admin.id}, ${hashPasswordResetToken(rawToken)}, ${expiresAt.toISOString()})
-  `
-
-  const resetUrl = `${requestOrigin(req)}/redefinir-senha?token=${rawToken}`
-  try {
-    await sendEmail({
-      to: admin.email,
-      subject: 'Redefinir sua senha — Organyze',
-      html: passwordResetEmailHtml({ resetUrl, businessName }),
-    })
-  } catch (e) {
-    // Não propaga o erro pro cliente — a resposta continua a mesma genérica
-    // de sempre, pra não diferenciar "e-mail não existe" de "Resend falhou".
-    // Fica registrado no log da função pra investigação.
-    console.error('Falha ao enviar e-mail de redefinição de senha:', e)
-  }
+  await sendPasswordResetEmail(req, { businessSlug, email: normalizedEmail, reason: 'requested' })
 
   res.status(200).json({ ok: true, message: genericMessage })
 }
@@ -485,7 +534,7 @@ async function resetPassword(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: invalidMessage })
   }
 
-  const admins = await sql`SELECT id, business_id, role FROM admin_users WHERE id = ${record.admin_user_id} LIMIT 1`
+  const admins = await sql`SELECT id, email, business_id, role FROM admin_users WHERE id = ${record.admin_user_id} LIMIT 1`
   const admin = admins.rows[0]
   if (!admin) return res.status(400).json({ error: invalidMessage })
 
@@ -498,6 +547,14 @@ async function resetPassword(req: VercelRequest, res: VercelResponse) {
     const biz = await sql`SELECT slug FROM businesses WHERE id = ${admin.business_id} LIMIT 1`
     businessSlug = biz.rows[0]?.slug ?? null
   }
+
+  // Quem acabou de provar dono da conta (recebeu e abriu o link no e-mail)
+  // não deve continuar bloqueado até amanhã por causa das tentativas de
+  // senha erradas que levaram a esse link — libera o login imediatamente
+  // com a senha nova, em vez de esperar a virada do dia.
+  const normalizedAdminEmail = String(admin.email ?? '').toLowerCase()
+  const loginScope = businessSlug ? `admin:${businessSlug.toLowerCase()}:${normalizedAdminEmail}` : `super:${normalizedAdminEmail}`
+  await clearLoginAttempts(loginScope)
 
   res.status(200).json({ ok: true, role: admin.role, businessSlug })
 }

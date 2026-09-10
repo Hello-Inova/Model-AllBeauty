@@ -171,12 +171,16 @@ No primeiro login de cada administrador de empresa, o sistema exige a aceitaçã
 
 ## Recuperação de senha por e-mail (Resend)
 
-Tanto o login da empresa (`/admin/<slug>/login`) quanto o do Super Admin (`/super-admin/login`) têm um link **"Esqueci minha senha"**. O fluxo é o de recuperação por e-mail padrão do mercado:
+Tanto o login da empresa (`/admin/<slug>/login`) quanto o do Super Admin (`/super-admin/login`) têm um link **"Esqueci minha senha"**. O fluxo é o de recuperação por e-mail padrão do mercado, e pode começar de duas formas:
 
-1. A pessoa informa o e-mail cadastrado em **"Esqueci minha senha"**.
-2. Se o e-mail existir, o sistema gera um token aleatório de uso único, válido por **1 hora**, salva apenas o hash dele no banco (tabela `password_reset_tokens`) e envia por e-mail (via [Resend](https://resend.com)) um link do tipo `https://<seu-domínio>/redefinir-senha?token=...`.
-3. A resposta da API é **sempre a mesma** (genérica, "se este e-mail estiver cadastrado, enviamos um link"), esteja o e-mail cadastrado ou não — isso evita que alguém descubra quais e-mails têm conta só tentando recuperar senha (enumeração de contas).
-4. Ao abrir o link e definir a nova senha, o token é conferido (existe, não expirou, não foi usado) e marcado como usado — não pode ser reaproveitado.
+- **Manual**: a pessoa clica em "Esqueci minha senha" e informa o e-mail.
+- **Automática**: depois de **3 senhas incorretas seguidas no mesmo dia** na própria tela de login, o sistema dispara esse mesmo fluxo sozinho — em vez de só bloquear o login até o dia seguinte, já envia o link de redefinição por e-mail (ver [Segurança](#segurança)). A tela de login troca a mensagem de erro por um aviso de "enviamos um e-mail com o link", igual ao da página de "Esqueci minha senha".
+
+A partir daí, os dois casos seguem o mesmo caminho:
+
+1. Se o e-mail existir, o sistema gera um token aleatório de uso único, válido por **1 hora**, salva apenas o hash dele no banco (tabela `password_reset_tokens`) e envia por e-mail (via [Resend](https://resend.com)) um link do tipo `https://<seu-domínio>/redefinir-senha?token=...`.
+2. A resposta da API é **sempre a mesma** (genérica, "se este e-mail estiver cadastrado, enviamos um link"), esteja o e-mail cadastrado ou não — isso evita que alguém descubra quais e-mails têm conta só tentando recuperar senha (enumeração de contas). A única diferença no caso automático (3 senhas erradas) é o texto do e-mail, que avisa que foram detectadas tentativas de login, não um pedido manual — assim, se não foi a própria pessoa tentando, ela fica sabendo.
+3. Ao abrir o link e definir a nova senha, o token é conferido (existe, não expirou, não foi usado) e marcado como usado — não pode ser reaproveitado. Isso também libera imediatamente qualquer bloqueio de tentativas de login associado àquela conta.
 
 ### Configuração necessária
 
@@ -301,7 +305,7 @@ src/
 - O `JWT_SECRET` deve ser um valor longo, aleatório e exclusivo deste ambiente de produção — nunca reutilize um valor de exemplo ou de desenvolvimento.
 - **Dados de cartão de crédito nunca são armazenados neste sistema.** O número completo, a validade e o CVV informados na página de assinatura são recebidos pelo backend e repassados imediatamente ao Asaas via HTTPS, sem serem gravados em log nem no banco de dados — apenas a bandeira e os 4 últimos dígitos (devolvidos pelo próprio Asaas) ficam salvos, só para exibição.
 - Os campos de cobrança de uma empresa (`billing_type`, `billing_plan`) só podem ser alterados pelo Super Admin, nunca pela própria empresa; os campos de status da assinatura (`subscription_status`, `plan_expires_at`, dados do cartão) não são editáveis por nenhuma rota genérica — só são escritos internamente pelo fluxo de cobrança (`api/billing`) e pelo webhook do Asaas (`api/webhooks/asaas`), este último protegido por um token compartilhado (`ASAAS_WEBHOOK_TOKEN`).
-- **Limite de tentativas de login**: tanto o login do admin da empresa quanto o do Super Admin bloqueiam novas tentativas após **3 senhas incorretas no mesmo dia** (fuso `America/Sao_Paulo`), liberando novamente à meia-noite. O contador é identificado por uma chave derivada do e-mail/slug informado — inclusive tentativas contra e-mails ou empresas inexistentes são contabilizadas, para não permitir enumerar contas válidas por tentativa e erro (`api/_lib/auth.ts`, tabela `login_attempts`).
+- **Limite de tentativas de login com recuperação automática**: tanto o login do admin da empresa quanto o do Super Admin contam **3 senhas incorretas no mesmo dia** (fuso `America/Sao_Paulo`) por uma chave derivada do e-mail/slug informado — inclusive tentativas contra e-mails ou empresas inexistentes são contabilizadas, para não permitir enumerar contas válidas por tentativa e erro. Ao bater no limite, em vez de simplesmente bloquear até o dia seguinte, o sistema dispara sozinho o mesmo fluxo de "esqueci minha senha" já existente na tela de login: envia por e-mail um link de redefinição de senha (e avisa o dono da conta que houve 3 tentativas com senha errada, caso não tenham sido dele). Assim que a senha é redefinida pelo link, o bloqueio daquele login é liberado na hora, sem esperar a virada do dia (`api/_lib/auth.ts` e `api/auth/[...action].ts`, tabela `login_attempts`).
 - **Sessão expira em 24 horas**: o cookie de login (`wl_session`) vale por 24h a partir do login, mesmo que a aba fique aberta — o painel confere a validade da sessão periodicamente e desconecta automaticamente quem passar desse prazo, exigindo login de novo (`api/_lib/auth.ts`, `src/contexts/AuthContext.tsx`).
 - **Redefinição de senha por e-mail**: o token enviado por e-mail (ver [Recuperação de senha por e-mail (Resend)](#recuperação-de-senha-por-e-mail-resend)) nunca é salvo em texto puro — apenas seu hash SHA-256 (tabela `password_reset_tokens`) — expira em 1 hora e só pode ser usado uma única vez.
 

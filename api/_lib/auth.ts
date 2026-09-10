@@ -164,10 +164,19 @@ export function requireBusinessAccess(session: SessionPayload, businessId: strin
 // antes de qualquer consulta a businesses/admin_users — assim uma tentativa
 // contra um e-mail ou empresa inexistente também é contabilizada, em vez de
 // dar de graça um número ilimitado de tentativas de "descoberta".
+//
+// Ao atingir o limite (3ª senha errada no dia), em vez de simplesmente
+// bloquear o login até o dia seguinte, o próprio fluxo de "esqueci minha
+// senha" já existente na tela de login é disparado automaticamente: gera um
+// token e envia por e-mail um link de redefinição (ver failLoginAttempt em
+// api/auth/[...action].ts). A pessoa consegue recuperar o acesso na hora, em
+// vez de esperar até amanhã — e se as tentativas não foram dela, o e-mail
+// também serve de aviso de que alguém tentou a senha da conta.
 // ---------------------------------------------------------------------------
 
 export const LOGIN_ATTEMPT_LIMIT = 3
-export const LOGIN_LOCKOUT_MESSAGE = 'Você atingiu o limite de 3 tentativas de login hoje. Tente novamente amanhã.'
+export const LOGIN_RECOVERY_MESSAGE =
+  'Você errou a senha 3 vezes. Por segurança, enviamos um e-mail com um link para redefinir sua senha — confira sua caixa de entrada (e o spam).'
 
 /** true se este scope já esgotou as tentativas do dia (fuso de Brasília). */
 export async function isLoginLocked(scope: string): Promise<boolean> {
@@ -202,9 +211,9 @@ export async function clearLoginAttempts(scope: string): Promise<void> {
   await sql`DELETE FROM login_attempts WHERE scope = ${scope}`
 }
 
-/** Mensagem de credenciais inválidas, com aviso de tentativas restantes quando fizer sentido. */
+/** Mensagem de credenciais inválidas, com aviso de tentativas restantes quando fizer sentido. Só é chamada enquanto ainda restam tentativas — ao esgotar o limite, o chamador usa LOGIN_RECOVERY_MESSAGE em vez desta (ver failLoginAttempt). */
 export function invalidCredentialsMessage(attemptsUsedToday: number): string {
   const remaining = LOGIN_ATTEMPT_LIMIT - attemptsUsedToday
-  if (remaining <= 0) return LOGIN_LOCKOUT_MESSAGE
+  if (remaining <= 0) return LOGIN_RECOVERY_MESSAGE
   return `E-mail ou senha inválidos. Você tem mais ${remaining} tentativa${remaining === 1 ? '' : 's'} hoje.`
 }

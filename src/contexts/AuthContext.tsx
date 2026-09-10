@@ -29,8 +29,9 @@ interface AuthContextValue {
   session: AdminSession | null
   loading: boolean
   register: (input: RegisterInput) => Promise<{ ok: boolean; error?: string; businessSlug?: string }>
-  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<{ ok: boolean; error?: string }>
-  loginSuperAdmin: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  /** recoveryTriggered: true = a 3ª senha errada disparou o envio automático do e-mail de recuperação (ver failLoginAttempt em api/auth/[...action].ts) — a tela de login deve mostrar o estado de "e-mail enviado" em vez do erro comum. */
+  loginBusinessAdmin: (businessSlug: string, email: string, password: string) => Promise<{ ok: boolean; error?: string; recoveryTriggered?: boolean }>
+  loginSuperAdmin: (email: string, password: string) => Promise<{ ok: boolean; error?: string; recoveryTriggered?: boolean }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   updateEmail: (currentPassword: string, newEmail: string) => Promise<void>
   acceptTerms: () => Promise<void>
@@ -43,6 +44,15 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** Erro de chamada à API de auth que carrega os campos extras do corpo da resposta (ex: recoveryTriggered) — um Error comum perderia tudo além da mensagem. */
+class ApiError extends Error {
+  recoveryTriggered?: boolean
+  constructor(message: string, extra?: { recoveryTriggered?: boolean }) {
+    super(message)
+    this.recoveryTriggered = extra?.recoveryTriggered
+  }
+}
+
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/auth/${path}`, {
     method: body === undefined ? 'GET' : 'POST',
@@ -50,7 +60,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error(data?.error ?? 'Não foi possível completar a operação.')
+  if (!res.ok) throw new ApiError(data?.error ?? 'Não foi possível completar a operação.', { recoveryTriggered: data?.recoveryTriggered })
   return data as T
 }
 
@@ -114,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(r.session)
       return { ok: true }
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : undefined }
+      return { ok: false, error: err instanceof Error ? err.message : undefined, recoveryTriggered: err instanceof ApiError ? err.recoveryTriggered : undefined }
     }
   }, [])
 
@@ -124,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(r.session)
       return { ok: true }
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : undefined }
+      return { ok: false, error: err instanceof Error ? err.message : undefined, recoveryTriggered: err instanceof ApiError ? err.recoveryTriggered : undefined }
     }
   }, [])
 
