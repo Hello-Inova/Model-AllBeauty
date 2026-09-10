@@ -25,6 +25,8 @@ const ContactPage = lazy(() => import('./pages/public/ContactPage').then((m) => 
 const BookingPage = lazy(() => import('./pages/public/BookingPage').then((m) => ({ default: m.BookingPage })))
 
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })))
+const ForgotPasswordPage = lazy(() => import('./pages/admin/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
 const AdminGate = lazy(() => import('./pages/admin/AdminGate').then((m) => ({ default: m.AdminGate })))
 const DashboardPage = lazy(() => import('./pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const AgendaPage = lazy(() => import('./pages/admin/AgendaPage').then((m) => ({ default: m.AgendaPage })))
@@ -45,6 +47,7 @@ const PrivacyPolicyPage = lazy(() => import('./pages/legal/PrivacyPolicyPage').t
 const CookiesPolicyPage = lazy(() => import('./pages/legal/CookiesPolicyPage').then((m) => ({ default: m.CookiesPolicyPage })))
 
 const SuperAdminLoginPage = lazy(() => import('./pages/superadmin/SuperAdminLoginPage').then((m) => ({ default: m.SuperAdminLoginPage })))
+const SuperAdminForgotPasswordPage = lazy(() => import('./pages/superadmin/SuperAdminForgotPasswordPage').then((m) => ({ default: m.SuperAdminForgotPasswordPage })))
 const SuperAdminGate = lazy(() => import('./pages/superadmin/SuperAdminGate').then((m) => ({ default: m.SuperAdminGate })))
 const SuperAdminDashboardPage = lazy(() => import('./pages/superadmin/SuperAdminDashboardPage').then((m) => ({ default: m.SuperAdminDashboardPage })))
 const SuperAdminOnboardingPage = lazy(() => import('./pages/superadmin/SuperAdminOnboardingPage').then((m) => ({ default: m.SuperAdminOnboardingPage })))
@@ -76,6 +79,8 @@ export default function AppRouter() {
             </Route>
 
             <Route path="/admin/:slug/login" element={<AdminLoginPage />} />
+            <Route path="/admin/:slug/esqueci-senha" element={<ForgotPasswordPage />} />
+            <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
             <Route path="/admin/:slug" element={<AdminGate />}>
               <Route index element={<DashboardPage />} />
               <Route path="agenda" element={<AgendaPage />} />
@@ -97,6 +102,7 @@ export default function AppRouter() {
             <Route path="/legal/cookies" element={<CookiesPolicyPage />} />
 
             <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
+            <Route path="/super-admin/esqueci-senha" element={<SuperAdminForgotPasswordPage />} />
             <Route path="/super-admin" element={<SuperAdminGate />}>
               <Route index element={<SuperAdminDashboardPage />} />
               <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />

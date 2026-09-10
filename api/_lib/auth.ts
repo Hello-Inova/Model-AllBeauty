@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { randomBytes, createHash } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
 import type { VercelRequest } from '@vercel/node'
 import { ApiError, sql } from './db.js'
@@ -47,7 +48,14 @@ export interface SessionPayload {
 }
 
 const COOKIE_NAME = 'wl_session'
-const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30 // 30 dias
+// Logout automático diário: a sessão (cookie + JWT) expira 24h depois do
+// login, sempre — não é renovada nem estendida por atividade em nenhum lugar
+// do código (ver api/auth/[...action].ts: nenhuma rota reassina o cookie
+// exceto update-email, que preserva o mesmo `sub`/prazo de sessão). Depois
+// de 24h logado, a próxima chamada à API já retorna 401 (getSession/
+// requireSession) e o frontend força o logout — ver o polling periódico em
+// src/contexts/AuthContext.tsx.
+const SESSION_TTL_SECONDS = 60 * 60 * 24 // 24 horas
 
 function secretKey(): Uint8Array {
   const secret = process.env.JWT_SECRET
@@ -63,6 +71,25 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash)
+}
+
+// ---------------------------------------------------------------------------
+// Tokens de redefinição de senha ("esqueci minha senha"). O token bruto (o
+// que vai no link do e-mail) NUNCA é gravado no banco — só o hash SHA-256
+// dele, na tabela password_reset_tokens. Um hash simples (sem salt/bcrypt)
+// é suficiente aqui porque o token já é gerado com alta entropia
+// (32 bytes aleatórios) e de uso único/curta validade, ao contrário de uma
+// senha escolhida por humano.
+// ---------------------------------------------------------------------------
+
+export const PASSWORD_RESET_TTL_SECONDS = 60 * 60 // 1 hora
+
+export function generatePasswordResetToken(): string {
+  return randomBytes(32).toString('hex')
+}
+
+export function hashPasswordResetToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex')
 }
 
 export async function signSession(payload: SessionPayload): Promise<string> {

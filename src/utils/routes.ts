@@ -5,6 +5,11 @@
 
 export const platformRoutes = {
   signup: '/comecar',
+  // Redefinição de senha é uma página compartilhada (não vive sob
+  // /admin/:slug nem /super-admin) porque o token do link já identifica
+  // sozinho a qual conta pertence — ver api/auth/[...action].ts (ação
+  // reset-password).
+  resetPassword: '/redefinir-senha',
 }
 
 export const publicRoutes = {
@@ -20,6 +25,7 @@ export const publicRoutes = {
 
 export const adminRoutes = {
   login: (slug: string) => `/admin/${slug}/login`,
+  forgotPassword: (slug: string) => `/admin/${slug}/esqueci-senha`,
   dashboard: (slug: string) => `/admin/${slug}`,
   agenda: (slug: string) => `/admin/${slug}/agenda`,
   services: (slug: string) => `/admin/${slug}/servicos`,
@@ -37,6 +43,7 @@ export const adminRoutes = {
 
 export const superAdminRoutes = {
   login: '/super-admin/login',
+  forgotPassword: '/super-admin/esqueci-senha',
   home: '/super-admin',
   onboarding: '/super-admin/nova-empresa',
   plans: '/super-admin/planos',

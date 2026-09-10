@@ -35,6 +35,10 @@ interface AuthContextValue {
   updateEmail: (currentPassword: string, newEmail: string) => Promise<void>
   acceptTerms: () => Promise<void>
   logout: () => Promise<void>
+  /** "Esqueci minha senha" — omita businessSlug para o fluxo do Super Admin. Resposta sempre genérica (nunca revela se o e-mail existe). */
+  forgotPassword: (input: { businessSlug?: string; email: string }) => Promise<{ ok: boolean; error?: string; message?: string }>
+  /** Confirma a redefinição a partir do token recebido por e-mail. Não loga o usuário automaticamente — devolve pra onde mandar o login (role/businessSlug) pra a tela decidir. */
+  resetPassword: (token: string, newPassword: string) => Promise<{ ok: boolean; error?: string; role?: AdminSession['role']; businessSlug?: string | null }>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -70,6 +74,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [])
+
+  // Logout automático diário: a sessão (cookie httpOnly + JWT) já expira no
+  // servidor 24h depois do login (ver SESSION_TTL_SECONDS em
+  // api/_lib/auth.ts) — isso sozinho garante que nenhuma chamada à API
+  // funcione depois desse prazo. Mas se a pessoa deixar a aba aberta sem
+  // navegar/clicar em nada, o React nunca ficaria sabendo disso até a
+  // próxima ação. Esse polling detecta a expiração e desloga no próprio
+  // painel, mesmo com a aba parada, em vez de só na próxima requisição.
+  const isLoggedIn = !!session
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const interval = setInterval(
+      () => {
+        api<{ session: AdminSession | null }>('me')
+          .then((r) => {
+            if (!r.session) setSession(null)
+          })
+          .catch(() => {})
+      },
+      5 * 60 * 1000, // a cada 5 minutos
+    )
+    return () => clearInterval(interval)
+  }, [isLoggedIn])
 
   const register = useCallback(async (input: RegisterInput) => {
     try {
@@ -120,9 +147,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null)
   }, [])
 
+  const forgotPassword = useCallback(async (input: { businessSlug?: string; email: string }) => {
+    try {
+      const r = await api<{ ok: boolean; message?: string }>('forgot-password', input)
+      return { ok: true, message: r.message }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : undefined }
+    }
+  }, [])
+
+  const resetPassword = useCallback(async (token: string, newPassword: string) => {
+    try {
+      const r = await api<{ ok: boolean; role?: AdminSession['role']; businessSlug?: string | null }>('reset-password', { token, newPassword })
+      return { ok: true, role: r.role, businessSlug: r.businessSlug }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : undefined }
+    }
+  }, [])
+
   const value = useMemo(
-    () => ({ session, loading, register, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout }),
-    [session, loading, register, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout],
+    () => ({
+      session,
+      loading,
+      register,
+      loginBusinessAdmin,
+      loginSuperAdmin,
+      changePassword,
+      updateEmail,
+      acceptTerms,
+      logout,
+      forgotPassword,
+      resetPassword,
+    }),
+    [session, loading, register, loginBusinessAdmin, loginSuperAdmin, changePassword, updateEmail, acceptTerms, logout, forgotPassword, resetPassword],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

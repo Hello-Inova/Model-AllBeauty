@@ -12,7 +12,11 @@ import {
   clearLoginAttempts,
   invalidCredentialsMessage,
   LOGIN_LOCKOUT_MESSAGE,
+  generatePasswordResetToken,
+  hashPasswordResetToken,
+  PASSWORD_RESET_TTL_SECONDS,
 } from '../_lib/auth.js'
+import { sendEmail } from '../_lib/resend.js'
 import { makeId } from '../../src/utils/id.js'
 import { slugify } from '../../src/utils/slug.js'
 
@@ -53,6 +57,15 @@ function remoteIpOf(req: VercelRequest): string {
   return req.socket?.remoteAddress ?? '127.0.0.1'
 }
 
+/** `https://seu-dominio.com` (ou http/localhost em dev) a partir dos headers da própria requisição — usado para montar o link absoluto do e-mail de redefinição de senha sem precisar de mais uma variável de ambiente com a URL do site. */
+function requestOrigin(req: VercelRequest): string {
+  const fwdHost = req.headers['x-forwarded-host']
+  const host = (Array.isArray(fwdHost) ? fwdHost[0] : fwdHost) ?? req.headers.host ?? 'localhost:5173'
+  const fwdProto = req.headers['x-forwarded-proto']
+  const proto = (Array.isArray(fwdProto) ? fwdProto[0] : fwdProto) ?? (host.startsWith('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = getAction(req)
   try {
@@ -64,6 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'change-password' && req.method === 'POST') return await changePassword(req, res)
     if (action === 'update-email' && req.method === 'POST') return await updateEmail(req, res)
     if (action === 'accept-terms' && req.method === 'POST') return await acceptTerms(req, res)
+    if (action === 'forgot-password' && req.method === 'POST') return await forgotPassword(req, res)
+    if (action === 'reset-password' && req.method === 'POST') return await resetPassword(req, res)
     res.status(404).json({ error: 'Rota de autenticação não encontrada.' })
   } catch (e) {
     if (e instanceof ApiError) return res.status(e.status).json({ error: e.message })
@@ -336,4 +351,153 @@ async function changePassword(req: VercelRequest, res: VercelResponse) {
   const hash = await hashPassword(newPassword)
   await sql`UPDATE admin_users SET password_hash = ${hash} WHERE id = ${session.sub}`
   res.status(200).json({ ok: true })
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function passwordResetEmailHtml(opts: { resetUrl: string; businessName?: string }): string {
+  const context = opts.businessName ? `da sua conta em <strong>${escapeHtml(opts.businessName)}</strong>` : 'da sua conta de Super Admin'
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f5f1ea;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f1ea;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" style="max-width:480px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e7e0d6;">
+            <tr>
+              <td style="background:#b3873e;padding:20px 32px;">
+                <span style="color:#ffffff;font-size:18px;font-weight:700;font-family:Georgia,'Times New Roman',serif;">Organyze</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;color:#221b15;">
+                <h1 style="font-size:18px;margin:0 0 16px;">Redefinir senha</h1>
+                <p style="font-size:14px;line-height:1.6;margin:0 0 16px;">Recebemos um pedido de redefinição de senha ${context}. Se foi você, clique no botão abaixo para escolher uma nova senha:</p>
+                <p style="text-align:center;margin:28px 0;">
+                  <a href="${opts.resetUrl}" style="background:#b3873e;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600;display:inline-block;">Redefinir minha senha</a>
+                </p>
+                <p style="font-size:12px;line-height:1.6;color:#6b625a;margin:0 0 8px;">O link expira em 1 hora. Se você não pediu essa redefinição, pode ignorar este e-mail — sua senha continua a mesma.</p>
+                <p style="font-size:12px;line-height:1.6;color:#6b625a;margin:0;">Se o botão não funcionar, copie e cole este link no navegador:<br /><a href="${opts.resetUrl}" style="color:#b3873e;word-break:break-all;">${opts.resetUrl}</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`
+}
+
+/**
+ * "Esqueci minha senha" — tanto para admin de empresa (businessSlug presente)
+ * quanto para Super Admin (businessSlug ausente/null). SEMPRE responde com a
+ * mesma mensagem genérica de sucesso, exista ou não o e-mail informado, para
+ * não permitir descobrir contas cadastradas por tentativa e erro. O limite
+ * de tentativas (mesmo mecanismo do login, 3 por dia por escopo) protege
+ * contra spam de e-mails de redefinição para uma vítima.
+ */
+async function forgotPassword(req: VercelRequest, res: VercelResponse) {
+  const { businessSlug, email } = readBody(req)
+  const normalizedEmail = String(email ?? '').trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Informe um e-mail válido.' })
+  }
+
+  const scope = businessSlug ? `forgot:${String(businessSlug).toLowerCase()}:${normalizedEmail}` : `forgot:super:${normalizedEmail}`
+  if (await isLoginLocked(scope)) {
+    return res.status(429).json({ error: 'Muitas solicitações de redefinição para este e-mail hoje. Tente novamente amanhã.' })
+  }
+  await registerFailedLoginAttempt(scope)
+
+  const genericMessage = 'Se este e-mail estiver cadastrado, enviamos um link para redefinir a senha. Confira também a caixa de spam.'
+
+  let admin: { id: string; email: string } | undefined
+  let businessName: string | undefined
+
+  if (businessSlug) {
+    const biz = await sql`SELECT id, display_name FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
+    if (biz.rows.length > 0) {
+      const admins = await sql`
+        SELECT id, email FROM admin_users
+        WHERE business_id = ${biz.rows[0].id} AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
+      `
+      admin = admins.rows[0]
+      businessName = biz.rows[0].display_name
+    }
+  } else {
+    const admins = await sql`
+      SELECT id, email FROM admin_users
+      WHERE business_id IS NULL AND role = 'super_admin' AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
+    `
+    admin = admins.rows[0]
+  }
+
+  if (!admin) return res.status(200).json({ ok: true, message: genericMessage })
+
+  const rawToken = generatePasswordResetToken()
+  const tokenId = makeId('prt')
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_SECONDS * 1000)
+  await sql`
+    INSERT INTO password_reset_tokens (id, admin_user_id, token_hash, expires_at)
+    VALUES (${tokenId}, ${admin.id}, ${hashPasswordResetToken(rawToken)}, ${expiresAt.toISOString()})
+  `
+
+  const resetUrl = `${requestOrigin(req)}/redefinir-senha?token=${rawToken}`
+  try {
+    await sendEmail({
+      to: admin.email,
+      subject: 'Redefinir sua senha — Organyze',
+      html: passwordResetEmailHtml({ resetUrl, businessName }),
+    })
+  } catch (e) {
+    // Não propaga o erro pro cliente — a resposta continua a mesma genérica
+    // de sempre, pra não diferenciar "e-mail não existe" de "Resend falhou".
+    // Fica registrado no log da função pra investigação.
+    console.error('Falha ao enviar e-mail de redefinição de senha:', e)
+  }
+
+  res.status(200).json({ ok: true, message: genericMessage })
+}
+
+/**
+ * Confirma a redefinição a partir do token recebido por e-mail. Token é de
+ * uso único e expira em 1h (ver PASSWORD_RESET_TTL_SECONDS) — ao ser usado
+ * com sucesso, invalida também qualquer outro link de redefinição pendente
+ * para o mesmo usuário.
+ */
+async function resetPassword(req: VercelRequest, res: VercelResponse) {
+  const { token, newPassword } = readBody(req)
+  const rawToken = String(token ?? '')
+  if (!rawToken) return res.status(400).json({ error: 'Link inválido.' })
+  if (!newPassword || String(newPassword).length < 6) {
+    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' })
+  }
+
+  const invalidMessage = 'Link inválido ou expirado. Solicite um novo link de redefinição de senha.'
+  const rows = await sql`
+    SELECT id, admin_user_id, expires_at, used_at FROM password_reset_tokens
+    WHERE token_hash = ${hashPasswordResetToken(rawToken)} LIMIT 1
+  `
+  const record = rows.rows[0]
+  if (!record || record.used_at || new Date(record.expires_at).getTime() < Date.now()) {
+    return res.status(400).json({ error: invalidMessage })
+  }
+
+  const admins = await sql`SELECT id, business_id, role FROM admin_users WHERE id = ${record.admin_user_id} LIMIT 1`
+  const admin = admins.rows[0]
+  if (!admin) return res.status(400).json({ error: invalidMessage })
+
+  const hash = await hashPassword(String(newPassword))
+  await sql`UPDATE admin_users SET password_hash = ${hash} WHERE id = ${admin.id}`
+  await sql`UPDATE password_reset_tokens SET used_at = now() WHERE admin_user_id = ${admin.id} AND used_at IS NULL`
+
+  let businessSlug: string | null = null
+  if (admin.business_id) {
+    const biz = await sql`SELECT slug FROM businesses WHERE id = ${admin.business_id} LIMIT 1`
+    businessSlug = biz.rows[0]?.slug ?? null
+  }
+
+  res.status(200).json({ ok: true, role: admin.role, businessSlug })
 }

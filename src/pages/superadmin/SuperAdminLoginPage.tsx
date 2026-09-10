@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ShieldCheck, LogIn } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button, Field, Input, PasswordInput } from '../../components/Form'
@@ -36,6 +36,9 @@ export function SuperAdminLoginPage() {
         <Field label="E-mail"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="voce@suaempresa.com" /></Field>
         <Field label="Senha" error={error ?? undefined}><PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
         <Button type="submit" icon={<LogIn size={16} />} loading={submitting}>Entrar</Button>
+        <Link to={superAdminRoutes.forgotPassword} className="text-center text-xs text-[var(--color-muted-foreground,#6b625a)] hover:text-[#1c1917]">
+          Esqueci minha senha
+        </Link>
       </form>
     </div>
   )

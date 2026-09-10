@@ -13,14 +13,15 @@ Uma base de produto reutilizável para catálogo de serviços e agendamento onli
 1. [Instalação e desenvolvimento](#instalação-e-desenvolvimento)
 2. [Deploy na Vercel (produção)](#deploy-na-vercel-produção)
 3. [Assinaturas e cobrança (Asaas)](#assinaturas-e-cobrança-asaas)
-4. [Como criar uma nova empresa (sem código)](#como-criar-uma-nova-empresa-sem-código)
-5. [Acessos gerados no seed](#acessos-gerados-no-seed)
-6. [Arquitetura](#arquitetura)
-7. [Estrutura de pastas](#estrutura-de-pastas)
-8. [Segurança](#segurança)
-9. [Backup e restauração](#backup-e-restauração)
-10. [Evolução do produto](#evolução-do-produto)
-11. [Checklist de entrega](#checklist-de-entrega)
+4. [Recuperação de senha por e-mail (Resend)](#recuperação-de-senha-por-e-mail-resend)
+5. [Como criar uma nova empresa (sem código)](#como-criar-uma-nova-empresa-sem-código)
+6. [Acessos gerados no seed](#acessos-gerados-no-seed)
+7. [Arquitetura](#arquitetura)
+8. [Estrutura de pastas](#estrutura-de-pastas)
+9. [Segurança](#segurança)
+10. [Backup e restauração](#backup-e-restauração)
+11. [Evolução do produto](#evolução-do-produto)
+12. [Checklist de entrega](#checklist-de-entrega)
 
 ---
 
@@ -96,6 +97,8 @@ Em **Settings → Environment Variables**, adicione:
 | `ASAAS_API_KEY` | Chave de API da conta [Asaas](https://www.asaas.com) da Hello Inova (**Configurações → Integrações → API** dentro do painel Asaas). Usada para cobrar a mensalidade das empresas — veja [Assinaturas e cobrança (Asaas)](#assinaturas-e-cobrança-asaas). |
 | `ASAAS_ENV` | `production` para cobrar de verdade, ou `sandbox` para testar sem movimentar dinheiro real. **Se não for definida, o sistema assume `sandbox` por padrão** (proteção contra deploy mal configurado cobrar dinheiro real por engano) — ou seja, é preciso definir explicitamente `production` quando estiver pronto para cobrar. |
 | `ASAAS_WEBHOOK_TOKEN` | Um segredo qualquer definido por você (ex: gere com `openssl rand -hex 24`) — cadastrado tanto aqui quanto no webhook configurado no painel Asaas (passo 3 da seção de assinaturas), para o sistema confirmar que os avisos de pagamento recebidos realmente vieram do Asaas. |
+| `RESEND_API_KEY` | Chave de API da conta [Resend](https://resend.com) da Hello Inova (**API Keys** no painel do Resend). Usada para enviar o e-mail de "Esqueci minha senha" — veja [Recuperação de senha por e-mail (Resend)](#recuperação-de-senha-por-e-mail-resend). |
+| `RESEND_FROM_EMAIL` | Endereço de remetente dos e-mails de redefinição de senha, no formato `Nome <email@dominio.com>` (ex: `Organyze <contato@organyze.com.br>`). **Opcional** — se não for definida, o sistema usa `Organyze <onboarding@resend.dev>`, o remetente de testes do Resend (veja a limitação abaixo). |
 
 As demais variáveis (`POSTGRES_URL`/`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`) já foram criadas automaticamente nos passos 2 e 3.
 
@@ -163,6 +166,26 @@ Tecnicamente, isso funciona trocando dinamicamente a tag `<link rel="manifest">`
 ### Termos de uso, privacidade e cookies
 
 No primeiro login de cada administrador de empresa, o sistema exige a aceitação dos **Termos de Uso**, da **Política de Privacidade (LGPD)** e da **Política de Cookies** antes de liberar o acesso ao painel (`src/components/admin/TermsGate.tsx`) — o aceite fica registrado com data/hora em `admin_users.terms_accepted_at`. O conteúdo desses documentos está em `src/pages/legal/` e também é acessível publicamente em `/legal/termos-de-uso`, `/legal/privacidade` e `/legal/cookies`. **Esse conteúdo foi gerado com apoio de IA com base na LGPD (Lei 13.709/2018), no Marco Civil da Internet (Lei 12.965/2014) e no Código de Defesa do Consumidor — recomenda-se revisão por um advogado antes do uso em produção**, especialmente se o negócio, os fornecedores (Asaas, Vercel) ou a forma de cobrança mudarem.
+
+---
+
+## Recuperação de senha por e-mail (Resend)
+
+Tanto o login da empresa (`/admin/<slug>/login`) quanto o do Super Admin (`/super-admin/login`) têm um link **"Esqueci minha senha"**. O fluxo é o de recuperação por e-mail padrão do mercado:
+
+1. A pessoa informa o e-mail cadastrado em **"Esqueci minha senha"**.
+2. Se o e-mail existir, o sistema gera um token aleatório de uso único, válido por **1 hora**, salva apenas o hash dele no banco (tabela `password_reset_tokens`) e envia por e-mail (via [Resend](https://resend.com)) um link do tipo `https://<seu-domínio>/redefinir-senha?token=...`.
+3. A resposta da API é **sempre a mesma** (genérica, "se este e-mail estiver cadastrado, enviamos um link"), esteja o e-mail cadastrado ou não — isso evita que alguém descubra quais e-mails têm conta só tentando recuperar senha (enumeração de contas).
+4. Ao abrir o link e definir a nova senha, o token é conferido (existe, não expirou, não foi usado) e marcado como usado — não pode ser reaproveitado.
+
+### Configuração necessária
+
+1. Crie uma conta em [resend.com](https://resend.com) (tem plano gratuito).
+2. Em **API Keys**, gere uma chave e defina como `RESEND_API_KEY` nas variáveis de ambiente da Vercel (veja [Configurar as variáveis de ambiente](#4-configurar-as-variáveis-de-ambiente)).
+3. **Limitação importante do modo de testes**: sem verificar um domínio próprio no Resend, o remetente padrão `onboarding@resend.dev` só consegue enviar e-mails para o **próprio e-mail cadastrado na conta Resend** — e-mails de redefinição de senha para os clientes reais das empresas cadastradas **não vão chegar**. Para funcionar em produção para qualquer destinatário, é necessário:
+   - Em **Domains** no painel do Resend, adicionar e verificar um domínio (ex: `organyze.com.br`) — configurando os registros DNS (SPF/DKIM) indicados pelo próprio Resend no provedor do domínio.
+   - Definir `RESEND_FROM_EMAIL` como um endereço nesse domínio verificado (ex: `Organyze <contato@organyze.com.br>`).
+4. Como o envio de e-mail nunca bloqueia nem revela a resposta genérica do passo 3 acima, uma falha no envio (chave inválida, domínio não verificado, Resend fora do ar) **falha silenciosamente para quem está pedindo a redefinição** — se um cliente relatar que o link não chegou, confira os logs de funções da Vercel (`forgot-password` em `api/auth/[...action].ts`) e o painel **Logs** do próprio Resend antes de suspeitar de outra coisa.
 
 ---
 
@@ -279,6 +302,8 @@ src/
 - **Dados de cartão de crédito nunca são armazenados neste sistema.** O número completo, a validade e o CVV informados na página de assinatura são recebidos pelo backend e repassados imediatamente ao Asaas via HTTPS, sem serem gravados em log nem no banco de dados — apenas a bandeira e os 4 últimos dígitos (devolvidos pelo próprio Asaas) ficam salvos, só para exibição.
 - Os campos de cobrança de uma empresa (`billing_type`, `billing_plan`) só podem ser alterados pelo Super Admin, nunca pela própria empresa; os campos de status da assinatura (`subscription_status`, `plan_expires_at`, dados do cartão) não são editáveis por nenhuma rota genérica — só são escritos internamente pelo fluxo de cobrança (`api/billing`) e pelo webhook do Asaas (`api/webhooks/asaas`), este último protegido por um token compartilhado (`ASAAS_WEBHOOK_TOKEN`).
 - **Limite de tentativas de login**: tanto o login do admin da empresa quanto o do Super Admin bloqueiam novas tentativas após **3 senhas incorretas no mesmo dia** (fuso `America/Sao_Paulo`), liberando novamente à meia-noite. O contador é identificado por uma chave derivada do e-mail/slug informado — inclusive tentativas contra e-mails ou empresas inexistentes são contabilizadas, para não permitir enumerar contas válidas por tentativa e erro (`api/_lib/auth.ts`, tabela `login_attempts`).
+- **Sessão expira em 24 horas**: o cookie de login (`wl_session`) vale por 24h a partir do login, mesmo que a aba fique aberta — o painel confere a validade da sessão periodicamente e desconecta automaticamente quem passar desse prazo, exigindo login de novo (`api/_lib/auth.ts`, `src/contexts/AuthContext.tsx`).
+- **Redefinição de senha por e-mail**: o token enviado por e-mail (ver [Recuperação de senha por e-mail (Resend)](#recuperação-de-senha-por-e-mail-resend)) nunca é salvo em texto puro — apenas seu hash SHA-256 (tabela `password_reset_tokens`) — expira em 1 hora e só pode ser usado uma única vez.
 
 ---
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { LogIn, Building2 } from 'lucide-react'
 import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -61,6 +61,9 @@ function AdminLoginInner() {
           <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
         </Field>
         <Button type="submit" icon={<LogIn size={16} />} loading={submitting}>Entrar</Button>
+        <Link to={adminRoutes.forgotPassword(business.slug)} className="text-center text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]">
+          Esqueci minha senha
+        </Link>
       </form>
     </div>
   )

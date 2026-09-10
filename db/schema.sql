@@ -105,6 +105,22 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- Tokens de "esqueci minha senha" (login de empresa e Super Admin). Nunca
+-- guardamos o token em texto puro — só o hash SHA-256 dele (mesmo raciocínio
+-- de nunca guardar senha em texto puro), com validade curta e uso único. Ver
+-- api/auth/[...action].ts (ações forgot-password / reset-password) e
+-- api/_lib/resend.ts (envio do e-mail).
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id             text PRIMARY KEY,
+  admin_user_id  text NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  token_hash     text NOT NULL,
+  expires_at     timestamptz NOT NULL,
+  used_at        timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS password_reset_tokens_token_hash_idx ON password_reset_tokens (token_hash);
+CREATE INDEX IF NOT EXISTS password_reset_tokens_admin_user_id_idx ON password_reset_tokens (admin_user_id);
+
 -- ---- Categorias -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS categories (
   id           text PRIMARY KEY,
