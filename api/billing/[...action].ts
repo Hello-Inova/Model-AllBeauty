@@ -64,6 +64,12 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+// Mesmo conjunto de planos válidos usado em api/auth/[...action].ts no
+// cadastro — mantido duplicado aqui de propósito (mesmo padrão já adotado
+// nesse outro arquivo) para não criar uma dependência cruzada entre os
+// endpoints de auth e billing.
+const VALID_BILLING_PLANS = new Set(['mensal', 'semestral', 'anual'])
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = getAction(req)
   try {
@@ -79,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 async function subscribe(req: VercelRequest, res: VercelResponse) {
   const body = readBody(req)
-  const { businessId, cardNumber, cardHolderName, cardExpiryMonth, cardExpiryYear, cardCcv, holderCpfCnpj, holderEmail, holderPostalCode, holderAddressNumber, holderPhone } = body
+  const { businessId, billingPlan, cardNumber, cardHolderName, cardExpiryMonth, cardExpiryYear, cardCcv, holderCpfCnpj, holderEmail, holderPostalCode, holderAddressNumber, holderPhone } = body
 
   if (!businessId) throw new ApiError(400, 'businessId é obrigatório.')
   const session = await requireSession(req)
@@ -90,14 +96,27 @@ async function subscribe(req: VercelRequest, res: VercelResponse) {
   }
 
   const bizRows = await sql`
-    SELECT id, name, email, phone, billing_type, billing_plan, asaas_customer_id, asaas_subscription_id
+    SELECT id, name, email, phone, billing_type, billing_plan, subscription_status, asaas_customer_id, asaas_subscription_id
     FROM businesses WHERE id = ${businessId} LIMIT 1
   `
   const biz = bizRows.rows[0]
   if (!biz) throw new ApiError(404, 'Empresa não encontrada.')
   if (biz.billing_type === 'isento') throw new ApiError(400, 'Esta empresa está marcada como isenta — não há cobrança a configurar.')
 
-  const planRows = await sql`SELECT * FROM plans WHERE id = ${biz.billing_plan} AND active = true LIMIT 1`
+  // A escolha/troca de plano pelo próprio admin da empresa só é permitida
+  // enquanto ela ainda não tem nenhuma assinatura ativa (primeiro pagamento).
+  // Depois de ativa, trocar de plano continua exigindo o Super Admin — ver
+  // aviso equivalente em SubscriptionAdminPage.tsx.
+  let chosenPlanId: string = biz.billing_plan
+  if (billingPlan && billingPlan !== biz.billing_plan) {
+    if (biz.subscription_status !== 'sem_assinatura') {
+      throw new ApiError(400, 'Para trocar de plano de uma assinatura já ativa, fale com a Hello Inova — a alteração é feita pelo Super Admin.')
+    }
+    if (!VALID_BILLING_PLANS.has(String(billingPlan))) throw new ApiError(400, 'Plano de assinatura inválido.')
+    chosenPlanId = String(billingPlan)
+  }
+
+  const planRows = await sql`SELECT * FROM plans WHERE id = ${chosenPlanId} AND active = true LIMIT 1`
   const plan = planRows.rows[0]
   if (!plan) throw new ApiError(400, 'Plano de assinatura inválido ou inativo. Fale com o suporte.')
 
@@ -157,6 +176,7 @@ async function subscribe(req: VercelRequest, res: VercelResponse) {
 
   await sql`
     UPDATE businesses SET
+      billing_plan = ${chosenPlanId},
       asaas_customer_id = ${customerId},
       asaas_subscription_id = ${subscriptionId},
       card_last4 = ${cardLast4},
@@ -169,7 +189,7 @@ async function subscribe(req: VercelRequest, res: VercelResponse) {
 
   res.status(200).json({
     billingType: biz.billing_type,
-    billingPlan: biz.billing_plan,
+    billingPlan: chosenPlanId,
     subscriptionStatus: 'ativa',
     planExpiresAt: nextDueDate,
     cardLast4,

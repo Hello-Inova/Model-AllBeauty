@@ -30,6 +30,7 @@ export interface BillingStatusWithHistory extends BillingStatus {
 
 export interface SubscribePayload {
   businessId: string
+  billingPlan?: BillingPlanId
   cardNumber: string
   cardHolderName: string
   cardExpiryMonth: string

@@ -3,7 +3,7 @@ import { CreditCard, CalendarClock, CheckCircle2, ShieldCheck } from 'lucide-rea
 import { useBusinessContext, useCurrentBusiness } from '../../contexts/BusinessContext'
 import { dataRepository } from '../../repositories'
 import { getBillingStatus, subscribeBilling, type BillingStatusWithHistory } from '../../services/billing'
-import type { BillingPlanDef } from '../../types'
+import type { BillingPlanDef, BillingPlanId } from '../../types'
 import { Badge, Button, Field, Input, SectionCard } from '../../components/Form'
 import { ScrollableTable, Td, Th } from '../../components/ScrollableTable'
 import { useToast } from '../../contexts/ToastContext'
@@ -26,12 +26,17 @@ export function SubscriptionAdminPage() {
   const [status, setStatus] = useState<BillingStatusWithHistory | null>(null)
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  // Só usado enquanto a empresa ainda não tem nenhuma assinatura ativa —
+  // é quando o próprio admin pode escolher o plano (ver `canChoosePlan`
+  // abaixo). Depois de ativa, a troca continua exigindo o Super Admin.
+  const [selectedPlanId, setSelectedPlanId] = useState<BillingPlanId | null>(null)
 
   async function load() {
     setLoading(true)
     const [p, s] = await Promise.all([dataRepository.getPlans(), getBillingStatus(business.id)])
     setPlans(p)
     setStatus(s)
+    setSelectedPlanId((prev) => prev ?? s.billingPlan)
     setLoading(false)
   }
 
@@ -55,6 +60,11 @@ export function SubscriptionAdminPage() {
   const days = daysUntil(status?.planExpiresAt)
   const statusTone =
     status?.subscriptionStatus === 'ativa' ? 'success' : status?.subscriptionStatus === 'atrasada' ? 'danger' : 'default'
+  // Antes da primeira assinatura, o admin da empresa pode escolher o plano
+  // aqui mesmo no painel — depois de ativa, a troca passa a exigir o Super
+  // Admin (mesma regra já aplicada no endpoint /api/billing/subscribe).
+  const canChoosePlan = status?.subscriptionStatus === 'sem_assinatura'
+  const highlightedPlanId = canChoosePlan ? selectedPlanId : (status?.billingPlan ?? business.billingPlan)
 
   async function handleSubscribed() {
     setModalOpen(false)
@@ -102,28 +112,40 @@ export function SubscriptionAdminPage() {
         <div className="lg:col-span-2">
           <SectionCard title="Planos disponíveis">
             <div className="grid sm:grid-cols-3 gap-3">
-              {plans.map((p) => (
-                <div
-                  key={p.id}
-                  className={`rounded-xl border p-4 flex flex-col gap-1.5 ${
-                    p.id === business.billingPlan ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-heading font-semibold text-sm">{p.name}</span>
-                    {p.id === business.billingPlan && <CheckCircle2 size={16} className="text-[var(--color-primary)]" />}
+              {plans.map((p) => {
+                const selected = p.id === highlightedPlanId
+                const cardClass = `rounded-xl border p-4 flex flex-col gap-1.5 text-left w-full transition ${
+                  selected ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)]'
+                } ${canChoosePlan ? 'cursor-pointer hover:border-[var(--color-primary)]/60' : ''}`
+                const content = (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="font-heading font-semibold text-sm">{p.name}</span>
+                      {selected && <CheckCircle2 size={16} className="text-[var(--color-primary)]" />}
+                    </div>
+                    <p className="text-lg font-heading font-semibold">{formatCents(planFinalPriceCents(p))}</p>
+                    {p.discountCents > 0 && (
+                      <p className="text-xs text-emerald-700">
+                        {planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})
+                      </p>
+                    )}
+                  </>
+                )
+                return canChoosePlan ? (
+                  <button key={p.id} type="button" onClick={() => setSelectedPlanId(p.id)} aria-pressed={selected} className={cardClass}>
+                    {content}
+                  </button>
+                ) : (
+                  <div key={p.id} className={cardClass}>
+                    {content}
                   </div>
-                  <p className="text-lg font-heading font-semibold">{formatCents(planFinalPriceCents(p))}</p>
-                  {p.discountCents > 0 && (
-                    <p className="text-xs text-emerald-700">
-                      {planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})
-                    </p>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
             <p className="text-xs text-[var(--color-muted-foreground)] mt-3">
-              Para trocar de plano, fale com a Hello Inova — a alteração é feita pelo Super Admin.
+              {canChoosePlan
+                ? 'Escolha um plano acima e clique em "Pagar agora", ao lado, para ativar sua assinatura.'
+                : 'Para trocar de plano, fale com a Hello Inova — a alteração é feita pelo Super Admin.'}
             </p>
           </SectionCard>
         </div>
@@ -160,12 +182,32 @@ export function SubscriptionAdminPage() {
         )}
       </SectionCard>
 
-      {modalOpen && <CardModal businessId={business.id} onClose={() => setModalOpen(false)} onSuccess={handleSubscribed} />}
+      {modalOpen && (
+        <CardModal
+          businessId={business.id}
+          billingPlan={canChoosePlan ? (selectedPlanId ?? undefined) : undefined}
+          planToConfirm={canChoosePlan ? plans.find((p) => p.id === selectedPlanId) : undefined}
+          onClose={() => setModalOpen(false)}
+          onSuccess={handleSubscribed}
+        />
+      )}
     </div>
   )
 }
 
-function CardModal({ businessId, onClose, onSuccess }: { businessId: string; onClose: () => void; onSuccess: () => void }) {
+function CardModal({
+  businessId,
+  billingPlan,
+  planToConfirm,
+  onClose,
+  onSuccess,
+}: {
+  businessId: string
+  billingPlan?: BillingPlanId
+  planToConfirm?: BillingPlanDef
+  onClose: () => void
+  onSuccess: () => void
+}) {
   const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({
@@ -189,7 +231,7 @@ function CardModal({ businessId, onClose, onSuccess }: { businessId: string; onC
     e.preventDefault()
     setSubmitting(true)
     try {
-      await subscribeBilling({ businessId, ...form })
+      await subscribeBilling({ businessId, billingPlan, ...form })
       onSuccess()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível confirmar o pagamento.')
@@ -207,6 +249,12 @@ function CardModal({ businessId, onClose, onSuccess }: { businessId: string; onC
       >
         <div>
           <h2 className="font-heading text-lg font-semibold">Dados de pagamento</h2>
+          {planToConfirm && (
+            <p className="text-sm mt-1.5">
+              Plano escolhido: <span className="font-medium">{planToConfirm.name}</span> —{' '}
+              <span className="font-medium">{formatCents(planFinalPriceCents(planToConfirm))}</span>
+            </p>
+          )}
           <p className="text-xs text-[var(--color-muted-foreground)] mt-1">
             Pagamento processado via cartão de crédito. Seus dados são enviados diretamente ao gateway de pagamento e não ficam salvos neste
             painel — apenas a bandeira e os 4 últimos dígitos, para você reconhecer o cartão.

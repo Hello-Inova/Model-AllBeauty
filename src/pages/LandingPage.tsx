@@ -33,10 +33,6 @@ import { Button } from '../components/Form'
 import { Reveal } from '../components/Reveal'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { InstagramVsSite } from '../components/landing/InstagramVsSite'
-// Seção "Como seu negócio pode ficar" (BusinessShowcase) desativada a pedido
-// do usuário — import comentado junto com o uso mais abaixo. Para reativar,
-// descomente este import e o bloco `<section id="exemplos">`.
-// import { BusinessShowcase } from '../components/landing/BusinessShowcase'
 import { ProductTour, type TourStep } from '../components/landing/ProductTour'
 import { FAQSection, type FAQItem } from '../components/landing/FAQSection'
 import { MobileStickyCTA } from '../components/landing/MobileStickyCTA'
@@ -342,15 +338,6 @@ export function LandingPage() {
       <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20 overflow-hidden">
         <HowItWorks steps={HOW_IT_WORKS_STEPS} ctaTo={platformRoutes.signup} />
       </section>
-
-      {/* Como seu negócio pode ficar (ITEM 10) — DESATIVADA a pedido do
-          usuário ("desative a seção de Feito pro seu segmento"). O
-          componente BusinessShowcase.tsx continua no projeto intacto; para
-          reativar, descomente este bloco e o import de BusinessShowcase
-          logo acima. */}
-      {/* <section id="exemplos" className="py-16 sm:py-20">
-        <BusinessShowcase demoTo={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} ctaTo={platformRoutes.signup} />
-      </section> */}
 
       {/* Tour do produto (ITEM 20) */}
       <section id="tour" className="bg-[var(--color-muted)] py-16 sm:py-20">
