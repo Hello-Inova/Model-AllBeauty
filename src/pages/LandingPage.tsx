@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   CalendarCheck2,
   Camera,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Globe,
   Menu,
@@ -45,6 +47,8 @@ const STEPS = [
 export function LandingPage() {
   const [plans, setPlans] = useState<BillingPlanDef[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [planIndex, setPlanIndex] = useState(0)
+  const touchStartX = useRef<number | null>(null)
 
   useEffect(() => {
     dataRepository
@@ -52,6 +56,26 @@ export function LandingPage() {
       .then((p) => setPlans(p.filter((x) => x.active)))
       .catch(() => setPlans([]))
   }, [])
+
+  useEffect(() => {
+    setPlanIndex((i) => (plans.length === 0 ? 0 : Math.min(i, plans.length - 1)))
+  }, [plans.length])
+
+  function goToPlan(delta: number) {
+    setPlanIndex((i) => (plans.length === 0 ? 0 : (i + delta + plans.length) % plans.length))
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return
+    const delta = e.changedTouches[0].clientX - touchStartX.current
+    touchStartX.current = null
+    if (Math.abs(delta) < 40) return
+    goToPlan(delta < 0 ? 1 : -1)
+  }
 
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
@@ -196,41 +220,85 @@ export function LandingPage() {
         {plans.length === 0 ? (
           <p className="text-sm text-[var(--color-muted-foreground)] text-center">Carregando planos…</p>
         ) : (
-          <div className="grid sm:grid-cols-3 gap-5 max-w-4xl mx-auto">
-            {plans.map((p) => {
-              const featured = p.discountCents > 0 && p.id === plans.reduce((a, b) => (b.discountCents > a.discountCents ? b : a), plans[0]).id
-              return (
-                <div
-                  key={p.id}
-                  className={`rounded-xl border p-6 flex flex-col gap-4 ${featured ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)] relative' : 'border-[var(--color-border)]'}`}
+          <div className="max-w-md mx-auto">
+            <div
+              className="overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div
+                className="flex transition-transform duration-300 ease-out"
+                style={{ transform: `translateX(-${planIndex * 100}%)` }}
+              >
+                {plans.map((p) => {
+                  const featured = p.discountCents > 0 && p.id === plans.reduce((a, b) => (b.discountCents > a.discountCents ? b : a), plans[0]).id
+                  return (
+                    <div key={p.id} className="w-full shrink-0 px-1">
+                      <div
+                        className={`rounded-xl border p-6 flex flex-col gap-4 ${featured ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)] relative' : 'border-[var(--color-border)]'}`}
+                      >
+                        {featured && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full">
+                            Melhor custo-benefício
+                          </span>
+                        )}
+                        <div>
+                          <p className="font-heading font-semibold">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
+                          <p className="text-3xl font-heading font-semibold mt-1.5">{formatCents(planFinalPriceCents(p))}</p>
+                          {p.discountCents > 0 ? (
+                            <p className="text-xs text-emerald-700 mt-1">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
+                          ) : (
+                            <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Cobrança recorrente</p>
+                          )}
+                        </div>
+                        <ul className="flex flex-col gap-2 text-sm">
+                          {['Site e agenda online', 'Painel administrativo completo', 'Personalização de marca', 'Suporte da Hello Inova'].map((f) => (
+                            <li key={f} className="flex items-center gap-2">
+                              <CheckCircle2 size={15} className="text-[var(--color-primary)] shrink-0" /> {f}
+                            </li>
+                          ))}
+                        </ul>
+                        <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
+                          <Button variant={featured ? 'primary' : 'outline'} className="w-full">Escolher este plano</Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {plans.length > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => goToPlan(-1)}
+                  aria-label="Plano anterior"
+                  className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
                 >
-                  {featured && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full">
-                      Melhor custo-benefício
-                    </span>
-                  )}
-                  <div>
-                    <p className="font-heading font-semibold">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
-                    <p className="text-3xl font-heading font-semibold mt-1.5">{formatCents(planFinalPriceCents(p))}</p>
-                    {p.discountCents > 0 ? (
-                      <p className="text-xs text-emerald-700 mt-1">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
-                    ) : (
-                      <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Cobrança recorrente</p>
-                    )}
-                  </div>
-                  <ul className="flex flex-col gap-2 text-sm">
-                    {['Site e agenda online', 'Painel administrativo completo', 'Personalização de marca', 'Suporte da Hello Inova'].map((f) => (
-                      <li key={f} className="flex items-center gap-2">
-                        <CheckCircle2 size={15} className="text-[var(--color-primary)] shrink-0" /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
-                    <Button variant={featured ? 'primary' : 'outline'} className="w-full">Escolher este plano</Button>
-                  </Link>
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="flex items-center gap-2">
+                  {plans.map((p, i) => (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => setPlanIndex(i)}
+                      aria-label={`Ver plano ${p.name || BILLING_PLAN_LABELS[p.id]}`}
+                      className={`h-2 rounded-full transition-all ${i === planIndex ? 'w-6 bg-[var(--color-primary)]' : 'w-2 bg-[var(--color-border)]'}`}
+                    />
+                  ))}
                 </div>
-              )
-            })}
+                <button
+                  type="button"
+                  onClick={() => goToPlan(1)}
+                  aria-label="Próximo plano"
+                  className="h-9 w-9 rounded-full border border-[var(--color-border)] flex items-center justify-center hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </section>
