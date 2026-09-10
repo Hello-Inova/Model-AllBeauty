@@ -90,7 +90,9 @@ export function VideosAdminPage() {
         <div>
           <h1 className="font-heading text-2xl font-semibold">Vídeos</h1>
           <p className="text-sm text-[var(--color-muted-foreground)]">
-            Até {MAX_VIDEOS_PER_BUSINESS} vídeos, cada um com até {MAX_VIDEO_DURATION_SECONDS} segundos. Exibidos no site — em carrossel quando houver mais de um.
+            {MAX_VIDEOS_PER_BUSINESS === 1
+              ? `Até 1 vídeo, com até ${MAX_VIDEO_DURATION_SECONDS} segundos. Exibido no site.`
+              : `Até ${MAX_VIDEOS_PER_BUSINESS} vídeos, cada um com até ${MAX_VIDEO_DURATION_SECONDS} segundos. Exibidos no site — em carrossel quando houver mais de um.`}
           </p>
         </div>
         <Button icon={<Plus size={16} />} onClick={openCreate} disabled={limitReached}>
@@ -100,7 +102,9 @@ export function VideosAdminPage() {
 
       {limitReached && (
         <p className="text-xs text-[var(--color-muted-foreground)] -mt-2">
-          Limite de {MAX_VIDEOS_PER_BUSINESS} vídeos atingido. Remova um vídeo para adicionar outro.
+          {MAX_VIDEOS_PER_BUSINESS === 1
+            ? 'Limite de 1 vídeo atingido. Remova o vídeo atual para enviar outro.'
+            : `Limite de ${MAX_VIDEOS_PER_BUSINESS} vídeos atingido. Remova um vídeo para adicionar outro.`}
         </p>
       )}
 
@@ -108,7 +112,11 @@ export function VideosAdminPage() {
         <EmptyState
           icon={<VideoIcon size={32} />}
           title="Nenhum vídeo cadastrado"
-          description={`Envie até ${MAX_VIDEOS_PER_BUSINESS} vídeos de até ${MAX_VIDEO_DURATION_SECONDS} segundos para exibir no seu site.`}
+          description={
+            MAX_VIDEOS_PER_BUSINESS === 1
+              ? `Envie um vídeo de até ${MAX_VIDEO_DURATION_SECONDS} segundos para exibir no seu site.`
+              : `Envie até ${MAX_VIDEOS_PER_BUSINESS} vídeos de até ${MAX_VIDEO_DURATION_SECONDS} segundos para exibir no seu site.`
+          }
         />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

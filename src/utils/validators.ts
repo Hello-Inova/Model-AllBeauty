@@ -44,6 +44,9 @@ export const messages = {
     tooLong: 'O vídeo deve ter no máximo 40 segundos.',
     loadFailed: 'Não foi possível carregar este vídeo.',
     invalidUrl: 'URL do vídeo inválida.',
-    limitReached: 'Limite de 3 vídeos atingido. Remova um vídeo para adicionar outro.',
+    // Recebe o limite atual (MAX_VIDEOS_PER_BUSINESS) pra concordar
+    // singular/plural corretamente em vez de fixar um número na mão aqui.
+    limitReached: (max: number) =>
+      max === 1 ? 'Limite de 1 vídeo atingido. Remova o vídeo atual para enviar outro.' : `Limite de ${max} vídeos atingido. Remova um vídeo para adicionar outro.`,
   },
 }

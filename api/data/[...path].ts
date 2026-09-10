@@ -8,7 +8,7 @@ import {
   rowToPlan, rowToPlatformSettings, rowToBillingTransaction,
 } from '../_lib/mappers.js'
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
-import { MAX_VIDEOS_PER_BUSINESS } from '../../src/config/index.js'
+import { MAX_VIDEOS_PER_BUSINESS, MAX_VIDEOS_LABEL } from '../../src/config/index.js'
 
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
@@ -806,11 +806,16 @@ async function videos(req: VercelRequest, res: VercelResponse) {
       const body = readBody(req)
       const session = await requireSession(req)
       requireBusinessAccess(session, body.businessId)
-      // Aplicado no servidor também (não só na UI) — defesa contra
-      // chamadas diretas à API além do limite de 3 vídeos por empresa.
+      // Aplicado no servidor também (não só na UI) — defesa contra chamadas
+      // diretas à API além do limite de vídeos por empresa (MAX_VIDEOS_PER_BUSINESS).
       const existing = await sql`SELECT COUNT(*)::int AS n FROM business_videos WHERE business_id = ${body.businessId}`
       if ((existing.rows[0]?.n ?? 0) >= MAX_VIDEOS_PER_BUSINESS) {
-        throw new ApiError(400, `Limite de ${MAX_VIDEOS_PER_BUSINESS} vídeos atingido. Remova um vídeo para adicionar outro.`)
+        throw new ApiError(
+          400,
+          MAX_VIDEOS_PER_BUSINESS === 1
+            ? 'Limite de 1 vídeo atingido. Remova o vídeo atual para enviar outro.'
+            : `Limite de ${MAX_VIDEOS_PER_BUSINESS} ${MAX_VIDEOS_LABEL} atingido. Remova um vídeo para adicionar outro.`,
+        )
       }
       const newId = makeId('vid')
       await sql`
