@@ -18,10 +18,14 @@ export const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'im
 // "Vídeos" do painel admin (VideosAdminPage) e da vitrine pública (HomePage).
 // O limite de bytes é generoso pois o upload vai direto do navegador para o
 // Vercel Blob (ver api/upload-video.ts), sem passar pelo limite de corpo de
-// requisição das Serverless Functions.
+// requisição das Serverless Functions — por isso o teto pode (e deve) ser
+// dimensionado pela DURAÇÃO aceita, não por um corpo de requisição pequeno.
+// Um vídeo de celular em alta qualidade (4K/HEVC) pode passar de 60MB mesmo
+// com menos de 40s, então o limite fica generoso o bastante para cobrir esse
+// caso sem abrir mão de barrar um arquivo absurdamente grande.
 export const MAX_VIDEOS_PER_BUSINESS = 3
 export const MAX_VIDEO_DURATION_SECONDS = 40
-export const MAX_UPLOAD_VIDEO_BYTES = 60 * 1024 * 1024 // 60MB
+export const MAX_UPLOAD_VIDEO_BYTES = 300 * 1024 * 1024 // 300MB
 export const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime']
 
 export const REPO_URL = 'https://github.com/Hello-Inova/Model-AllBeauty'

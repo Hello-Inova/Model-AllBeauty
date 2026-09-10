@@ -36,7 +36,11 @@ export const messages = {
   },
   invalidVideo: {
     format: 'Formato de vídeo não suportado. Use MP4, WebM ou MOV.',
-    tooLarge: 'O vídeo é muito grande.',
+    // Recebe o tamanho do arquivo enviado e o limite atual (em bytes) para
+    // deixar claro pro admin o motivo real da rejeição — "muito grande" sozinho
+    // não ajuda quem não sabe quantos MB o próprio vídeo tem.
+    tooLarge: (fileBytes: number, limitBytes: number) =>
+      `O vídeo é muito grande (${(fileBytes / (1024 * 1024)).toFixed(1)}MB). O limite é ${Math.round(limitBytes / (1024 * 1024))}MB.`,
     tooLong: 'O vídeo deve ter no máximo 40 segundos.',
     loadFailed: 'Não foi possível carregar este vídeo.',
     invalidUrl: 'URL do vídeo inválida.',
