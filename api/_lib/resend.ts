@@ -7,13 +7,17 @@
 // Credentials live ONLY in environment variables (never in the database,
 // never returned to the frontend):
 //   RESEND_API_KEY    — API key from the Resend dashboard (Settings → API Keys).
-//   RESEND_FROM_EMAIL  — the "From" address, e.g. "Organyze <naoresponda@organyze.com.br>".
-//                         Must be on a domain verified in Resend (Settings → Domains) to
-//                         send to arbitrary recipients. Defaults to Resend's own
-//                         onboarding@resend.dev sender, which works without any domain
-//                         setup but Resend restricts it to sending only to the e-mail
-//                         address that owns the Resend account — fine for testing,
-//                         not for real users. See README.md.
+//   RESEND_FROM_EMAIL  — the "From" address, ideally already in "Nome <email>" format
+//                         (e.g. "Organyze <naoresponda@organyze.com.br>"). A custom e-mail
+//                         address here must be on a domain verified in Resend
+//                         (Settings → Domains) to send to arbitrary recipients — until then,
+//                         leave this unset and fromAddress() below defaults to Resend's own
+//                         onboarding@resend.dev sender, which works without any domain setup
+//                         but Resend restricts it to sending only to the e-mail address that
+//                         owns the Resend account — fine for testing, not for real users. See
+//                         README.md. Either way, fromAddress() always makes sure the "Organyze"
+//                         display name shows up — even if this variable is set to a bare
+//                         address with no display name.
 import { ApiError } from './db.js'
 
 function apiKey(): string {
@@ -22,8 +26,20 @@ function apiKey(): string {
   return key
 }
 
+const DEFAULT_FROM_NAME = 'Organyze'
+const DEFAULT_FROM_EMAIL = 'onboarding@resend.dev'
+
 function fromAddress(): string {
-  return process.env.RESEND_FROM_EMAIL || 'Organyze <onboarding@resend.dev>'
+  const raw = (process.env.RESEND_FROM_EMAIL || '').trim()
+  if (!raw) return `${DEFAULT_FROM_NAME} <${DEFAULT_FROM_EMAIL}>`
+  // Se RESEND_FROM_EMAIL já vier no formato "Nome <email>", respeita
+  // exatamente como configurado na Vercel. Mas se vier só o endereço puro
+  // (ex: alguém preencheu a variável com apenas "onboarding@resend.dev",
+  // sem nome de exibição — foi exatamente isso que fez o destinatário ver
+  // só o e-mail cru como remetente, em vez de "Organyze"), garante o nome
+  // de exibição "Organyze" mesmo assim.
+  if (raw.includes('<') && raw.includes('>')) return raw
+  return `${DEFAULT_FROM_NAME} <${raw}>`
 }
 
 /**
