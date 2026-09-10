@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Generated at install time (scripts/copy-ffmpeg-core.mjs) from
+# node_modules/@ffmpeg/core — a ~31MB WebAssembly binary that must NOT be
+# committed to git. Regenerated automatically by the "postinstall" script.
+public/ffmpeg-core
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

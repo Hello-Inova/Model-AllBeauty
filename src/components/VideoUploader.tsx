@@ -3,6 +3,7 @@ import type { VideoAsset } from '../types'
 import { videoStorage } from '../repositories'
 import { ACCEPTED_VIDEO_TYPES, MAX_UPLOAD_VIDEO_BYTES, MAX_VIDEO_DURATION_SECONDS } from '../config'
 import { messages } from '../utils/validators'
+import { compressVideo, shouldCompress } from '../utils/videoCompression'
 import { Link2, Upload, X, Video as VideoIcon, Loader2 } from 'lucide-react'
 import { Button, Input } from './Form'
 
@@ -44,6 +45,7 @@ export function VideoUploader({ label, value, onChange }: VideoUploaderProps) {
   const [urlInput, setUrlInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [stage, setStage] = useState<'compress' | 'upload' | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -57,7 +59,7 @@ export function VideoUploader({ label, value, onChange }: VideoUploaderProps) {
       return
     }
     if (file.size > MAX_UPLOAD_VIDEO_BYTES) {
-      setError(messages.invalidVideo.tooLarge)
+      setError(messages.invalidVideo.tooLarge(file.size, MAX_UPLOAD_VIDEO_BYTES))
       return
     }
     try {
@@ -71,14 +73,26 @@ export function VideoUploader({ label, value, onChange }: VideoUploaderProps) {
       return
     }
     setBusy(true)
+    let fileToUpload = file
+    // Vídeos de celular em alta qualidade costumam vir bem maiores do que
+    // precisam — comprimir no navegador antes de enviar reduz bastante o
+    // custo de armazenamento/transferência sem exigir nenhum servidor.
+    // Arquivos já pequenos pulam essa etapa (COMPRESS_ABOVE_BYTES).
+    if (shouldCompress(file)) {
+      setStage('compress')
+      setProgress(0)
+      fileToUpload = await compressVideo(file, setProgress)
+    }
+    setStage('upload')
     setProgress(0)
     try {
-      const asset = await videoStorage.uploadVideo(file, setProgress)
+      const asset = await videoStorage.uploadVideo(fileToUpload, setProgress)
       onChange(asset)
     } catch {
       setError(messages.invalidVideo.loadFailed)
     } finally {
       setBusy(false)
+      setStage(null)
       setProgress(null)
     }
   }
@@ -108,9 +122,11 @@ export function VideoUploader({ label, value, onChange }: VideoUploaderProps) {
 
       <div className="relative w-full aspect-video rounded-lg border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)] overflow-hidden flex items-center justify-center">
         {busy ? (
-          <div className="flex flex-col items-center gap-2 text-[var(--color-muted-foreground)] text-xs">
+          <div className="flex flex-col items-center gap-2 text-[var(--color-muted-foreground)] text-xs px-4 text-center">
             <Loader2 className="animate-spin" size={28} />
+            <span>{stage === 'compress' ? 'Comprimindo vídeo…' : 'Enviando vídeo…'}</span>
             {progress !== null && <span>{Math.round(progress)}%</span>}
+            {stage === 'compress' && <span className="text-[10px] opacity-75">Isso reduz o tamanho do arquivo antes do envio — pode levar um pouco em vídeos maiores.</span>}
           </div>
         ) : value ? (
           <>

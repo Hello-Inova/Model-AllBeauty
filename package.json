@@ -9,9 +9,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "generate-seed": "tsx scripts/generate-seed.mts",
-    "typecheck:api": "tsc -p tsconfig.api.json --noEmit"
+    "typecheck:api": "tsc -p tsconfig.api.json --noEmit",
+    "postinstall": "node scripts/copy-ffmpeg-core.mjs"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
     "@vercel/blob": "^2.8.0",
     "@vercel/postgres": "^0.10.0",
     "bcryptjs": "^3.0.3",
@@ -22,6 +24,7 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
+    "@ffmpeg/core": "^0.12.10",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
