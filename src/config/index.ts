@@ -1,4 +1,4 @@
-export const APP_NAME = 'Plataforma de Agendamento'
+export const APP_NAME = 'Organyze'
 
 export const STORAGE_PREFIX = 'wl-booking'
 export const STORAGE_VERSION = 1

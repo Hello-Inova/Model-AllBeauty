@@ -6,7 +6,7 @@ import { sql } from './_lib/db.js'
 // for the Super Admin panel (/super-admin).
 //
 // The static file at public/manifest.webmanifest covers the public site with
-// generic "Plataforma de Agendamento" branding. The admin panels instead want
+// generic "Organyze" branding. The admin panels instead want
 // their own scope/start_url (and, for a business, its own name and logo) when
 // added to a phone's home screen — a single static manifest can't do that, so
 // InstallAppPrompt.tsx swaps <link rel="manifest"> to point here as soon as

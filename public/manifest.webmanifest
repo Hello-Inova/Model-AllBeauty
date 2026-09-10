@@ -1,6 +1,6 @@
 {
-  "name": "Plataforma de Agendamento",
-  "short_name": "Agenda",
+  "name": "Organyze",
+  "short_name": "Organyze",
   "description": "Catálogo de serviços e agendamento online",
   "start_url": "./",
   "scope": "./",
