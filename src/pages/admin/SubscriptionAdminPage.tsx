@@ -56,7 +56,6 @@ export function SubscriptionAdminPage() {
     )
   }
 
-  const currentPlan = plans.find((p) => p.id === (status?.billingPlan ?? business.billingPlan))
   const days = daysUntil(status?.planExpiresAt)
   const statusTone =
     status?.subscriptionStatus === 'ativa' ? 'success' : status?.subscriptionStatus === 'atrasada' ? 'danger' : 'default'
@@ -65,6 +64,12 @@ export function SubscriptionAdminPage() {
   // Admin (mesma regra já aplicada no endpoint /api/billing/subscribe).
   const canChoosePlan = status?.subscriptionStatus === 'sem_assinatura'
   const highlightedPlanId = canChoosePlan ? selectedPlanId : (status?.billingPlan ?? business.billingPlan)
+  // O card "Status atual" acompanha o plano clicado em "Planos disponíveis"
+  // enquanto ainda não há assinatura ativa — é só uma prévia (o texto de
+  // status/cobrança abaixo continua fiel ao que já está gravado; nada é
+  // cobrado até a confirmação do pagamento no modal).
+  const displayPlanId = canChoosePlan && selectedPlanId ? selectedPlanId : (status?.billingPlan ?? business.billingPlan)
+  const currentPlan = plans.find((p) => p.id === displayPlanId)
 
   async function handleSubscribed() {
     setModalOpen(false)
@@ -87,9 +92,12 @@ export function SubscriptionAdminPage() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Badge tone={statusTone as 'success' | 'danger' | 'default'}>{SUBSCRIPTION_STATUS_LABELS[status.subscriptionStatus] ?? status.subscriptionStatus}</Badge>
-                <span className="text-sm font-medium">{BILLING_PLAN_LABELS[status.billingPlan] ?? status.billingPlan}</span>
+                <span className="text-sm font-medium">{BILLING_PLAN_LABELS[displayPlanId] ?? displayPlanId}</span>
               </div>
               {currentPlan && <p className="text-2xl font-heading font-semibold">{formatCents(planFinalPriceCents(currentPlan))}</p>}
+              {canChoosePlan && (
+                <p className="text-xs text-[var(--color-muted-foreground)] -mt-2">Prévia do plano selecionado — confirme o pagamento para ativar.</p>
+              )}
               <div className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
                 <CalendarClock size={15} />
                 {status.planExpiresAt

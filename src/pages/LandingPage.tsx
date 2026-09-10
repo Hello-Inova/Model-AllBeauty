@@ -254,7 +254,7 @@ export function LandingPage() {
             O site e a agenda online do seu negócio, prontos em minutos
           </h1>
           <p className="animate-fade-in-up text-base sm:text-lg text-[var(--color-muted-foreground)] mt-5 max-w-xl mx-auto" style={{ animationDelay: '100ms' }}>
-            Seu negócio não precisa depender só do Instagram e do WhatsApp. Ganhe um site profissional com agendamento online, painel
+            Seu negócio não precisa depender só das redes sociais e do WhatsApp. Ganhe um site profissional com agendamento online, painel
             administrativo completo e a identidade visual do seu negócio — sem precisar contratar um desenvolvedor.
           </p>
           <div className="animate-fade-in-up flex flex-col sm:flex-row items-center justify-center gap-3 mt-8" style={{ animationDelay: '200ms' }}>
@@ -269,7 +269,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Instagram x site próprio (ITEM 6 + reforço de posicionamento do ITEM 19) */}
+      {/* Redes sociais x site próprio (ITEM 6 + reforço de posicionamento do ITEM 19) */}
       <section id="site-proprio" className="py-16 sm:py-20">
         <InstagramVsSite ctaTo={platformRoutes.signup} />
       </section>
