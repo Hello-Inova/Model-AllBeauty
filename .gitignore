@@ -27,3 +27,14 @@ public/ffmpeg-core
 *.njsproj
 *.sln
 *.sw?
+
+# Pasta de saída de scripts/manuais gerados localmente — não deve ser versionada
+out/
+
+# Pasta de estágio para arquivos marcados para exclusão manual (ver README
+# de convenções do projeto) — nunca deve ser commitada
+_to_delete/
+
+# Arquivos compactados/backup soltos na raiz, criados manualmente durante
+# renomeações ou testes locais
+*.tar.gz
