@@ -34,6 +34,12 @@ import { Reveal } from '../components/Reveal'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { InstagramVsSite } from '../components/landing/InstagramVsSite'
 import { ProductTour, type TourStep } from '../components/landing/ProductTour'
+import tourDashboard from '../assets/tour/dashboard.webp'
+import tourPersonalizacao from '../assets/tour/personalizacao.webp'
+import tourServicos from '../assets/tour/servicos.webp'
+import tourAgenda from '../assets/tour/agenda.webp'
+import tourSiteCliente from '../assets/tour/site-cliente.webp'
+import tourAgendamento from '../assets/tour/agendamento.webp'
 import { FAQSection, type FAQItem } from '../components/landing/FAQSection'
 import { MobileStickyCTA } from '../components/landing/MobileStickyCTA'
 import { APP_NAME, DEFAULT_BUSINESS_SLUG } from '../config'
@@ -69,14 +75,17 @@ const HOW_IT_WORKS_STEPS = [
 ]
 
 // Sequência do tour (ver comentário em ProductTour.tsx) — nomes alinhados
-// às telas reais do painel (adminRoutes em utils/routes.ts).
+// às telas reais do painel (adminRoutes em utils/routes.ts). As capturas em
+// src/assets/tour/ são do negócio de demonstração "Beauty Demo" (mesmo
+// usado em "Ver demonstração" — ver db/seed.sql), renderizadas a partir da
+// UI real do produto.
 const TOUR_STEPS: TourStep[] = [
-  { icon: LayoutDashboard, tab: 'Dashboard', title: 'Um painel com a visão geral do seu negócio', text: 'Acompanhe agendamentos, clientes e a situação da sua assinatura, tudo em um só lugar.' },
-  { icon: Palette, tab: 'Personalização', title: 'Deixe o site com a cara do seu negócio', text: 'Logo, cores e identidade visual ficam a seu critério — o site parece feito sob medida para você.' },
-  { icon: Scissors, tab: 'Serviços', title: 'Cadastre seu catálogo completo', text: 'Categorias, serviços, preços, duração e os profissionais responsáveis por cada atendimento.' },
-  { icon: CalendarClock, tab: 'Agenda', title: 'Configure seus horários de atendimento', text: 'Defina os dias e horários disponíveis — a agenda online passa a respeitar essa configuração automaticamente.' },
-  { icon: MonitorSmartphone, tab: 'Site do cliente', title: 'Seu site, pronto para receber visitas', text: 'Seus clientes acessam pelo celular ou computador e encontram tudo o que precisam saber sobre o seu negócio.' },
-  { icon: CalendarCheck2, tab: 'Agendamento', title: 'O cliente escolhe o serviço e o horário', text: 'Em poucos cliques o agendamento fica concluído — sem trocar mensagem, a qualquer hora do dia.' },
+  { icon: LayoutDashboard, tab: 'Dashboard', title: 'Um painel com a visão geral do seu negócio', text: 'Acompanhe agendamentos, clientes e a situação da sua assinatura, tudo em um só lugar.', image: tourDashboard },
+  { icon: Palette, tab: 'Personalização', title: 'Deixe o site com a cara do seu negócio', text: 'Logo, cores e identidade visual ficam a seu critério — o site parece feito sob medida para você.', image: tourPersonalizacao },
+  { icon: Scissors, tab: 'Serviços', title: 'Cadastre seu catálogo completo', text: 'Categorias, serviços, preços, duração e os profissionais responsáveis por cada atendimento.', image: tourServicos },
+  { icon: CalendarClock, tab: 'Agenda', title: 'Configure seus horários de atendimento', text: 'Defina os dias e horários disponíveis — a agenda online passa a respeitar essa configuração automaticamente.', image: tourAgenda },
+  { icon: MonitorSmartphone, tab: 'Site do cliente', title: 'Seu site, pronto para receber visitas', text: 'Seus clientes acessam pelo celular ou computador e encontram tudo o que precisam saber sobre o seu negócio.', image: tourSiteCliente },
+  { icon: CalendarCheck2, tab: 'Agendamento', title: 'O cliente escolhe o serviço e o horário', text: 'Em poucos cliques o agendamento fica concluído — sem trocar mensagem, a qualquer hora do dia.', image: tourAgendamento },
 ]
 
 // Perguntas frequentes — só o que o produto realmente oferece hoje (ver
@@ -94,6 +103,21 @@ const FAQS: FAQItem[] = [
   { question: 'Posso utilizar meu próprio domínio?', answer: 'Hoje cada negócio recebe um endereço próprio dentro da plataforma, fácil de compartilhar nas redes sociais e no WhatsApp.' },
 ]
 
+/**
+ * No carrossel de planos do mobile, o plano anual (normalmente o de maior
+ * desconto) fica na posição central entre os cards, e é o primeiro a
+ * aparecer quando a página carrega (ver efeito que define `planIndex`
+ * logo abaixo). Reordena só a cópia usada pelo carrossel — a grade fixa do
+ * desktop continua na ordem original vinda da API.
+ */
+function withAnnualCentered(list: BillingPlanDef[]): BillingPlanDef[] {
+  const annualIdx = list.findIndex((p) => p.id === 'anual')
+  if (annualIdx === -1) return list
+  const rest = list.filter((p) => p.id !== 'anual')
+  const mid = Math.floor(rest.length / 2)
+  return [...rest.slice(0, mid), list[annualIdx], ...rest.slice(mid)]
+}
+
 export function LandingPage() {
   const [plans, setPlans] = useState<BillingPlanDef[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
@@ -108,8 +132,18 @@ export function LandingPage() {
       .catch(() => setPlans([]))
   }, [])
 
+  // Ao carregar os planos, o carrossel do mobile abre direto no plano anual
+  // (posição central — ver `withAnnualCentered`), em vez do primeiro da
+  // lista. Só roda quando a quantidade de planos muda (carregamento inicial
+  // ou falha), então não atrapalha a navegação manual do usuário depois.
   useEffect(() => {
-    setPlanIndex((i) => (plans.length === 0 ? 0 : Math.min(i, plans.length - 1)))
+    if (plans.length === 0) {
+      setPlanIndex(0)
+      return
+    }
+    const annualIdx = withAnnualCentered(plans).findIndex((p) => p.id === 'anual')
+    setPlanIndex(annualIdx !== -1 ? annualIdx : 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plans.length])
 
   function goToPlan(delta: number) {
@@ -127,6 +161,7 @@ export function LandingPage() {
   )
   const yearlySavingsCents = planYearlySavingsCents(mensalPlan, bestValuePlan)
   const savingsPeriodLabel = bestValuePlan?.months === 12 ? 'por ano' : bestValuePlan?.months === 6 ? 'no semestre' : bestValuePlan ? `a cada ${bestValuePlan.months} meses` : ''
+  const mobilePlans = withAnnualCentered(plans)
 
   /**
    * Um único card de plano — usado tanto na grade estática do desktop (todos
@@ -197,7 +232,7 @@ export function LandingPage() {
           </nav>
           <div className="hidden sm:block">
             <Link to={platformRoutes.signup}>
-              <Button size="sm">Criar minha conta</Button>
+              <Button size="sm">Criar meu site</Button>
             </Link>
           </div>
           <button className="sm:hidden p-2 -mr-2" onClick={() => setMenuOpen((v) => !v)} aria-label="Abrir menu">
@@ -231,13 +266,16 @@ export function LandingPage() {
             <a href="#como-funciona" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Como funciona</a>
             <a href="#planos" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Planos</a>
             <a href="#faq" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Perguntas frequentes</a>
-            <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">
-              Ver demonstração
-            </Link>
           </nav>
-          <div className="px-4 pb-6 shrink-0">
+          {/* CTAs em destaque, agrupados no rodapé do menu — "Ver demonstração"
+              (outline) sempre acima de "Criar meu site" (preenchido), nessa
+              ordem, a pedido do usuário. */}
+          <div className="px-4 pb-6 shrink-0 flex flex-col gap-2.5">
+            <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} onClick={() => setMenuOpen(false)}>
+              <Button size="sm" variant="outline" className="w-full">Ver demonstração</Button>
+            </Link>
             <Link to={platformRoutes.signup} onClick={() => setMenuOpen(false)}>
-              <Button size="sm" className="w-full">Criar minha conta</Button>
+              <Button size="sm" className="w-full">Criar meu site</Button>
             </Link>
           </div>
         </div>
@@ -270,12 +308,15 @@ export function LandingPage() {
       </section>
 
       {/* Redes sociais x site próprio (ITEM 6 + reforço de posicionamento do ITEM 19) */}
-      <section id="site-proprio" className="py-16 sm:py-20">
+      <section id="site-proprio" className="py-16 sm:py-20 border-t border-[var(--color-border)]">
         <InstagramVsSite ctaTo={platformRoutes.signup} />
       </section>
 
-      {/* Features / Benefícios (ITEM 5 — já escrito em tom de benefício comercial) */}
-      <section id="recursos" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+      {/* Features / Benefícios (ITEM 5 — já escrito em tom de benefício comercial). Fundo
+          levemente destacado (muted) pra alternar com as seções vizinhas — ver o mesmo
+          raciocínio nos comentários das seções abaixo. */}
+      <section id="recursos" className="bg-[var(--color-muted)] border-t border-[var(--color-border)] py-16 sm:py-20">
+       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Tudo em um só lugar</span>
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Feito para o dia a dia do seu negócio</h2>
@@ -332,15 +373,16 @@ export function LandingPage() {
             <Button size="lg" variant="outline" className="transition-transform hover:scale-105 active:scale-95">Começar agora</Button>
           </Link>
         </div>
+       </div>
       </section>
 
       {/* How it works (ITEM 4) */}
-      <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20 overflow-hidden">
+      <section id="como-funciona" className="border-t border-[var(--color-border)] py-16 sm:py-20 overflow-hidden">
         <HowItWorks steps={HOW_IT_WORKS_STEPS} ctaTo={platformRoutes.signup} />
       </section>
 
       {/* Tour do produto (ITEM 20) */}
-      <section id="tour" className="bg-[var(--color-muted)] py-16 sm:py-20">
+      <section id="tour" className="bg-[var(--color-muted)] border-t border-[var(--color-border)] py-16 sm:py-20">
         <ProductTour steps={TOUR_STEPS} ctaTo={platformRoutes.signup} />
       </section>
 
@@ -364,7 +406,10 @@ export function LandingPage() {
             </div>
 
             {/* Mobile/tablet: carrossel de swipe, um plano por vez — mais
-                confortável numa tela estreita do que espremer 3 cards. */}
+                confortável numa tela estreita do que espremer 3 cards. O
+                plano anual fica no meio da ordem (withAnnualCentered) e é
+                o primeiro a ser exibido (ver efeito que define planIndex
+                acima). */}
             <div className="lg:hidden max-w-md mx-auto">
               <div
                 className="overflow-hidden"
@@ -375,7 +420,7 @@ export function LandingPage() {
                   className="flex transition-transform duration-300 ease-out"
                   style={{ transform: `translateX(-${planIndex * 100}%)` }}
                 >
-                  {plans.map((p) => (
+                  {mobilePlans.map((p) => (
                     <div key={p.id} className="w-full shrink-0 px-1">
                       {renderPlanCard(p)}
                     </div>
@@ -383,7 +428,7 @@ export function LandingPage() {
                 </div>
               </div>
 
-              {plans.length > 1 && (
+              {mobilePlans.length > 1 && (
                 <div className="flex items-center justify-center gap-4 mt-6">
                   <button
                     type="button"
@@ -394,7 +439,7 @@ export function LandingPage() {
                     <ChevronLeft size={18} />
                   </button>
                   <div className="flex items-center gap-2">
-                    {plans.map((p, i) => (
+                    {mobilePlans.map((p, i) => (
                       <button
                         type="button"
                         key={p.id}
@@ -445,7 +490,7 @@ export function LandingPage() {
       </section>
 
       {/* FAQ (ITEM 15) */}
-      <section id="faq" className="bg-[var(--color-muted)] py-16 sm:py-20">
+      <section id="faq" className="bg-[var(--color-muted)] border-t border-[var(--color-border)] py-16 sm:py-20">
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <Reveal className="text-center mb-10">
             <h2 className="font-heading text-2xl sm:text-3xl font-semibold">Perguntas frequentes</h2>
@@ -454,9 +499,11 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="bg-[var(--color-secondary)] text-[var(--color-secondary-foreground)]">
-        <Reveal className="max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center flex flex-col items-center gap-5">
+      {/* Final CTA — leve brilho radial atrás do conteúdo pra dar destaque
+          e fechar a página com mais presença, sem sair da paleta do tema. */}
+      <section className="relative overflow-hidden bg-[var(--color-secondary)] text-[var(--color-secondary-foreground)]">
+        <div className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/3 h-72 w-72 sm:h-96 sm:w-96 rounded-full bg-[var(--color-primary)]/25 blur-3xl pointer-events-none" />
+        <Reveal className="relative max-w-4xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center flex flex-col items-center gap-5">
           <Clock size={28} className="opacity-70 animate-float-slow" />
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold">Comece a receber agendamentos hoje mesmo</h2>
           <p className="text-sm sm:text-base opacity-80 max-w-lg">

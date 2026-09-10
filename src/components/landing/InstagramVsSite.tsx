@@ -75,27 +75,51 @@ export function InstagramVsSite({ ctaTo }: { ctaTo: string }) {
         </div>
       </Reveal>
 
-      {/* Fluxo visual: descoberta (redes sociais) -> apresentação (site) -> informação (serviços) -> conversão (agendamento) -> cliente. */}
+      {/* Fluxo visual: descoberta (redes sociais) -> apresentação (site) -> informação (serviços) -> conversão (agendamento) -> cliente.
+          No mobile é uma linha do tempo vertical (grade de 2 colunas: ícone
+          alinhado à esquerda + texto, com a seta centralizada embaixo de
+          cada ícone, conectando um passo ao próximo). No desktop continua
+          em linha, com setas horizontais entre os cards. */}
       <Reveal delay={200}>
-        <div className="mt-12 rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-2">
+        <div className="mt-12 rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-8 sm:px-6">
+          {/* Mobile */}
+          <div className="flex flex-col sm:hidden">
             {FLOW.map((f, i) => (
-              <div key={f.label} className="flex sm:flex-1 items-center gap-2 sm:flex-col sm:text-center">
-                <div className="flex sm:flex-col items-center gap-3 sm:gap-2">
-                  <div className="h-11 w-11 shrink-0 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary)]">
+              <div key={f.label}>
+                <div className="grid grid-cols-[44px_1fr] items-center gap-x-4">
+                  <div className="h-11 w-11 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary)]">
                     <f.icon size={18} />
                   </div>
-                  <div className="flex flex-col sm:items-center">
+                  <div className="flex flex-col">
                     <span className="text-sm font-medium">{f.label}</span>
                     <span className="text-xs text-[var(--color-muted-foreground)]">{f.text}</span>
                   </div>
                 </div>
                 {i < FLOW.length - 1 && (
-                  <>
-                    <ArrowRight size={16} className="hidden sm:block text-[var(--color-primary)]/50 shrink-0" />
-                    <ArrowDown size={16} className="sm:hidden text-[var(--color-primary)]/50 shrink-0 ml-auto" />
-                  </>
+                  <div className="grid grid-cols-[44px_1fr]">
+                    <div className="flex justify-center py-1">
+                      <ArrowDown size={16} className="text-[var(--color-primary)]/50 shrink-0" />
+                    </div>
+                  </div>
                 )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop */}
+          <div className="hidden sm:flex items-center justify-between gap-2">
+            {FLOW.map((f, i) => (
+              <div key={f.label} className="flex flex-1 items-center gap-2 flex-col text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="h-11 w-11 shrink-0 rounded-full bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary)]">
+                    <f.icon size={18} />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-sm font-medium">{f.label}</span>
+                    <span className="text-xs text-[var(--color-muted-foreground)]">{f.text}</span>
+                  </div>
+                </div>
+                {i < FLOW.length - 1 && <ArrowRight size={16} className="text-[var(--color-primary)]/50 shrink-0" />}
               </div>
             ))}
           </div>

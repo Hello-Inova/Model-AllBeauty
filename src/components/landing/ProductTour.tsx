@@ -9,16 +9,18 @@ export interface TourStep {
   tab: string
   title: string
   text: string
+  /**
+   * Captura de tela real da respectiva área do produto (ver src/assets/tour/
+   * README-like comment em LandingPage.tsx). Opcional: quando ausente, cai no
+   * placeholder tracejado abaixo em vez de quebrar o layout.
+   */
+  image?: string
 }
 
 /**
  * "Veja como funciona na prática" (ITEM 20) — tour em abas pelas telas reais
  * do produto (dashboard, personalização, serviços, agenda, site do cliente,
  * agendamento — os mesmos nomes das rotas em utils/routes.ts `adminRoutes`).
- * O projeto ainda não tem capturas de tela reais versionadas (só logo/favicon
- * em public/), então cada aba mostra um placeholder CLARAMENTE identificado
- * como tal em vez de uma imagem genérica ou inventada — é só substituir
- * `screenshotSrc` por uma captura real quando existir, sem mexer no resto.
  */
 export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string }) {
   const [active, setActive] = useState(0)
@@ -52,11 +54,16 @@ export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string
         </div>
 
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden grid md:grid-cols-2">
-          {/* Placeholder de captura de tela — trocar por screenshot real quando existir. */}
-          <div className="aspect-video md:aspect-auto bg-[var(--color-muted)] flex flex-col items-center justify-center gap-2 text-[var(--color-muted-foreground)] border-b md:border-b-0 md:border-r border-[var(--color-border)] border-dashed p-6">
-            <ImageOff size={28} strokeWidth={1.5} />
-            <span className="text-xs text-center">Espaço reservado para captura de tela real de "{current.tab}"</span>
-          </div>
+          {current.image ? (
+            <div className="aspect-video md:aspect-auto bg-[var(--color-muted)] border-b md:border-b-0 md:border-r border-[var(--color-border)] overflow-hidden">
+              <img src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} className="h-full w-full object-cover object-top" />
+            </div>
+          ) : (
+            <div className="aspect-video md:aspect-auto bg-[var(--color-muted)] flex flex-col items-center justify-center gap-2 text-[var(--color-muted-foreground)] border-b md:border-b-0 md:border-r border-[var(--color-border)] border-dashed p-6">
+              <ImageOff size={28} strokeWidth={1.5} />
+              <span className="text-xs text-center">Espaço reservado para captura de tela real de "{current.tab}"</span>
+            </div>
+          )}
           <div className="p-6 sm:p-8 flex flex-col justify-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
               <current.icon size={20} />
