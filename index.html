@@ -6,13 +6,23 @@
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#b3873e" />
-    <meta name="description" content="Plataforma white-label de catálogo de serviços e agendamento online." />
+    <!--
+      Título/descrição abaixo são os padrões estáticos servidos na home da
+      plataforma ("/", LandingPage.tsx) — a única rota que NÃO troca esses
+      valores em runtime. Páginas de cada negócio (/empresa/:slug/...)
+      sobrescrevem tudo isso dinamicamente via src/components/SEO.tsx assim
+      que montam, então editar aqui só afeta a home institucional.
+    -->
+    <meta name="description" content="Crie um site profissional com agendamento online para o seu salão, clínica ou barbearia. Sistema de agendamento simples, sem precisar programar." />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:title" content="Organyze — Site profissional e agendamento online para negócios de serviços" />
+    <meta property="og:description" content="Plataforma white-label para salões, clínicas, barbearias e outros negócios de serviços terem seu próprio site com catálogo e agendamento online." />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <title>Organyze</title>
+    <title>Organyze — Site profissional e agendamento online para salões e clínicas</title>
   </head>
   <body>
     <div id="root"></div>

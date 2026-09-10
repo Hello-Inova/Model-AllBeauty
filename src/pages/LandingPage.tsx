@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight,
   CalendarCheck2,
+  CalendarClock,
   Camera,
   CheckCircle2,
   ChevronDown,
@@ -11,14 +12,18 @@ import {
   ChevronUp,
   Clock,
   Globe,
+  LayoutDashboard,
+  ListChecks,
   Menu,
+  MonitorSmartphone,
   Palette,
+  PiggyBank,
   Rocket,
   Scissors,
   ShieldCheck,
   Smartphone,
   Sparkles,
-  UserPlus,
+  Star,
   Users,
   X,
 } from 'lucide-react'
@@ -26,10 +31,15 @@ import { dataRepository } from '../repositories'
 import type { BillingPlanDef } from '../types'
 import { Button } from '../components/Form'
 import { Reveal } from '../components/Reveal'
-import { Carousel } from '../components/public/Carousel'
+import { HowItWorks } from '../components/landing/HowItWorks'
+import { InstagramVsSite } from '../components/landing/InstagramVsSite'
+import { BusinessShowcase } from '../components/landing/BusinessShowcase'
+import { ProductTour, type TourStep } from '../components/landing/ProductTour'
+import { FAQSection, type FAQItem } from '../components/landing/FAQSection'
+import { MobileStickyCTA } from '../components/landing/MobileStickyCTA'
 import { APP_NAME, DEFAULT_BUSINESS_SLUG } from '../config'
 import { platformRoutes, publicRoutes, legalRoutes } from '../utils/routes'
-import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents } from '../utils/billing'
+import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents, planMonthlyEquivalentCents, planYearlySavingsCents } from '../utils/billing'
 
 // No mobile/tablet (grade de até 2 colunas) mostramos 3 cards recolhidos;
 // no desktop (grade de 4 colunas) mostramos 4, preenchendo a linha inteira
@@ -50,10 +60,39 @@ const FEATURES = [
   { icon: ShieldCheck, title: 'Seus dados, protegidos', text: 'Backup e exportação completos sempre que você quiser, sem depender de ninguém.' },
 ]
 
-const STEPS = [
-  { icon: UserPlus, title: 'Crie sua conta', text: 'Nome do negócio, e-mail e senha. Menos de 2 minutos e sua conta já está pronta.' },
-  { icon: Palette, title: 'Personalize seu site', text: 'Logo, cores e serviços — o painel te guia passo a passo no que falta configurar.' },
-  { icon: CalendarCheck2, title: 'Comece a receber agendamentos', text: 'Compartilhe o link do seu site e deixe seus clientes marcarem sozinhos.' },
+// Os 4 passos abaixo refletem o fluxo real de cadastro e onboarding do
+// produto (ver o comentário em src/components/landing/HowItWorks.tsx).
+const HOW_IT_WORKS_STEPS = [
+  { icon: ListChecks, title: 'Escolha seu segmento', text: 'Diga o que é o seu negócio — salão, clínica, barbearia e outros — e já comece com tudo pensado pro seu tipo de negócio.' },
+  { icon: Palette, title: 'Personalize', text: 'Adicione logo, cores, fotos, serviços, profissionais e horários de atendimento.' },
+  { icon: Globe, title: 'Publique', text: 'Seu site já fica no ar automaticamente — é só compartilhar o link com seus clientes.' },
+  { icon: CalendarCheck2, title: 'Receba agendamentos', text: 'Seu cliente escolhe o serviço e o horário direto pelo site, sem precisar te chamar no WhatsApp.' },
+]
+
+// Sequência do tour (ver comentário em ProductTour.tsx) — nomes alinhados
+// às telas reais do painel (adminRoutes em utils/routes.ts).
+const TOUR_STEPS: TourStep[] = [
+  { icon: LayoutDashboard, tab: 'Dashboard', title: 'Um painel com a visão geral do seu negócio', text: 'Acompanhe agendamentos, clientes e a situação da sua assinatura, tudo em um só lugar.' },
+  { icon: Palette, tab: 'Personalização', title: 'Deixe o site com a cara do seu negócio', text: 'Logo, cores e identidade visual ficam a seu critério — o site parece feito sob medida para você.' },
+  { icon: Scissors, tab: 'Serviços', title: 'Cadastre seu catálogo completo', text: 'Categorias, serviços, preços, duração e os profissionais responsáveis por cada atendimento.' },
+  { icon: CalendarClock, tab: 'Agenda', title: 'Configure seus horários de atendimento', text: 'Defina os dias e horários disponíveis — a agenda online passa a respeitar essa configuração automaticamente.' },
+  { icon: MonitorSmartphone, tab: 'Site do cliente', title: 'Seu site, pronto para receber visitas', text: 'Seus clientes acessam pelo celular ou computador e encontram tudo o que precisam saber sobre o seu negócio.' },
+  { icon: CalendarCheck2, tab: 'Agendamento', title: 'O cliente escolhe o serviço e o horário', text: 'Em poucos cliques o agendamento fica concluído — sem trocar mensagem, a qualquer hora do dia.' },
+]
+
+// Perguntas frequentes — só o que o produto realmente oferece hoje (ver
+// comentário em FAQSection.tsx sobre a pergunta de domínio próprio).
+const FAQS: FAQItem[] = [
+  { question: 'Preciso saber programar?', answer: 'Não. Você personaliza seu site inteiro pelo painel administrativo — cores, logo, serviços e horários — sem escrever nenhuma linha de código.' },
+  { question: 'Posso personalizar meu site?', answer: 'Sim. Cores, logo, fotos e a identidade visual do seu negócio ficam a seu critério, direto pelo painel.' },
+  { question: 'Posso adicionar minha logo e minhas imagens?', answer: 'Sim. Você pode enviar sua logo, imagem de capa, galeria de fotos e vídeos do seu negócio.' },
+  { question: 'Posso cadastrar meus serviços?', answer: 'Sim. Você cadastra categorias, serviços, preços, duração e os profissionais responsáveis por cada atendimento.' },
+  { question: 'Meus clientes conseguem agendar pelo site?', answer: 'Sim. Seus clientes escolhem o serviço e o horário direto pelo site, a qualquer hora do dia — sem precisar chamar no WhatsApp.' },
+  { question: 'O site funciona no celular?', answer: 'Sim. O site e o painel administrativo funcionam bem no celular, já que é por onde a maioria dos seus clientes acessa.' },
+  { question: 'Posso cancelar minha assinatura?', answer: 'Sim, você pode cancelar quando quiser, direto na área de Assinatura do seu painel administrativo.' },
+  { question: 'Quais planos estão disponíveis?', answer: 'Mensal, semestral e anual — quanto maior o ciclo, maior o desconto. Os valores atualizados ficam na seção de Planos, logo acima.' },
+  { question: 'O que acontece depois que eu assino?', answer: 'Você já pode personalizar seu site, cadastrar seus serviços e compartilhar o link com seus clientes — tudo na hora, pelo painel administrativo.' },
+  { question: 'Posso utilizar meu próprio domínio?', answer: 'Hoje cada negócio recebe um endereço próprio dentro da plataforma, fácil de compartilhar nas redes sociais e no WhatsApp.' },
 ]
 
 export function LandingPage() {
@@ -78,6 +117,18 @@ export function LandingPage() {
     setPlanIndex((i) => (plans.length === 0 ? 0 : (i + delta + plans.length) % plans.length))
   }
 
+  // ---- Calculadora de economia (ITEM 8) — 100% derivada dos preços reais já
+  // carregados via dataRepository.getPlans(); nunca inventa um valor. Quando
+  // não há plano suficiente para comparar, `yearlySavingsCents` fica null e a
+  // UI simplesmente omite o destaque de economia (ver JSX da seção Planos).
+  const mensalPlan = plans.find((p) => p.id === 'mensal')
+  const bestValuePlan = plans.reduce<BillingPlanDef | undefined>(
+    (best, p) => (!best || planMonthlyEquivalentCents(p) < planMonthlyEquivalentCents(best) ? p : best),
+    undefined,
+  )
+  const yearlySavingsCents = planYearlySavingsCents(mensalPlan, bestValuePlan)
+  const savingsPeriodLabel = bestValuePlan?.months === 12 ? 'por ano' : bestValuePlan?.months === 6 ? 'no semestre' : bestValuePlan ? `a cada ${bestValuePlan.months} meses` : ''
+
   /**
    * Um único card de plano — usado tanto na grade estática do desktop (todos
    * os planos lado a lado, sem carrossel, já que cabem na tela) quanto no
@@ -86,16 +137,18 @@ export function LandingPage() {
    */
   function renderPlanCard(p: BillingPlanDef) {
     const featured = p.discountCents > 0 && p.id === plans.reduce((a, b) => (b.discountCents > a.discountCents ? b : a), plans[0]).id
+    const monthlyEquivalent = p.months > 1 ? planMonthlyEquivalentCents(p) : null
     return (
       <div className={`h-full rounded-xl border p-6 flex flex-col gap-4 ${featured ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)] relative' : 'border-[var(--color-border)]'}`}>
         {featured && (
-          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full">
-            Melhor custo-benefício
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 text-xs font-semibold bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-1 rounded-full whitespace-nowrap">
+            <Star size={12} fill="currentColor" /> MELHOR CUSTO-BENEFÍCIO
           </span>
         )}
         <div>
           <p className="font-heading font-semibold">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
           <p className="text-3xl font-heading font-semibold mt-1.5">{formatCents(planFinalPriceCents(p))}</p>
+          {monthlyEquivalent !== null && <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">≈ {formatCents(monthlyEquivalent)}/mês</p>}
           {p.discountCents > 0 ? (
             <p className="text-xs text-emerald-700 mt-1">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
           ) : (
@@ -110,7 +163,7 @@ export function LandingPage() {
           ))}
         </ul>
         <Link to={`${platformRoutes.signup}?plano=${p.id}`} className="mt-auto">
-          <Button variant={featured ? 'primary' : 'outline'} className="w-full transition-transform hover:scale-[1.03] active:scale-95">Escolher este plano</Button>
+          <Button variant={featured ? 'primary' : 'outline'} className="w-full transition-transform hover:scale-[1.03] active:scale-95">Assinar agora</Button>
         </Link>
       </div>
     )
@@ -129,7 +182,7 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)]">
+    <div className="min-h-screen bg-[var(--color-background)] pb-24 sm:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-[var(--color-background)]/90 backdrop-blur border-b border-[var(--color-border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -178,6 +231,7 @@ export function LandingPage() {
             <a href="#recursos" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Recursos</a>
             <a href="#como-funciona" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Como funciona</a>
             <a href="#planos" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Planos</a>
+            <a href="#faq" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Perguntas frequentes</a>
             <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">
               Ver demonstração
             </Link>
@@ -201,8 +255,8 @@ export function LandingPage() {
             O site e a agenda online do seu negócio, prontos em minutos
           </h1>
           <p className="animate-fade-in-up text-base sm:text-lg text-[var(--color-muted-foreground)] mt-5 max-w-xl mx-auto" style={{ animationDelay: '100ms' }}>
-            Crie sua conta, escolha um plano e ganhe um site profissional com agendamento online, painel administrativo completo e a
-            identidade visual do seu negócio — sem precisar contratar um desenvolvedor.
+            Seu negócio não precisa depender só do Instagram e do WhatsApp. Ganhe um site profissional com agendamento online, painel
+            administrativo completo e a identidade visual do seu negócio — sem precisar contratar um desenvolvedor.
           </p>
           <div className="animate-fade-in-up flex flex-col sm:flex-row items-center justify-center gap-3 mt-8" style={{ animationDelay: '200ms' }}>
             <Link to={platformRoutes.signup}>
@@ -216,7 +270,12 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Instagram x site próprio (ITEM 6 + reforço de posicionamento do ITEM 19) */}
+      <section id="site-proprio" className="py-16 sm:py-20">
+        <InstagramVsSite ctaTo={platformRoutes.signup} />
+      </section>
+
+      {/* Features / Benefícios (ITEM 5 — já escrito em tom de benefício comercial) */}
       <section id="recursos" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
         <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Tudo em um só lugar</span>
@@ -267,39 +326,31 @@ export function LandingPage() {
             )}
           </div>
         )}
-      </section>
 
-      {/* How it works */}
-      <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20 overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <Reveal className="text-center max-w-xl mx-auto mb-12">
-            <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Simples assim</span>
-            <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Como funciona</h2>
-          </Reveal>
-
-          <Reveal delay={100}>
-            <Carousel itemClassName="w-[82%] xs:w-[70%] sm:w-[320px]">
-              {STEPS.map((s, i) => (
-                <div key={s.title} className="relative h-full flex flex-col items-center text-center gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] px-6 pt-10 pb-8">
-                  <span className="absolute top-4 left-1/2 -translate-x-1/2 font-heading text-6xl font-bold text-[var(--color-primary)]/10 select-none">
-                    {i + 1}
-                  </span>
-                  <div className="relative flex flex-col items-center gap-4 w-full">
-                    <div className="relative flex items-center justify-center h-16 w-16 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-lg shadow-[var(--color-primary)]/30 transition-transform duration-300 hover:scale-110">
-                      <s.icon size={26} />
-                      <span className="absolute inset-0 rounded-full border-2 border-dashed border-[var(--color-primary)]/40 scale-125" />
-                    </div>
-                    <h3 className="font-heading font-semibold text-lg">{s.title}</h3>
-                    <p className="text-sm text-[var(--color-muted-foreground)] max-w-xs">{s.text}</p>
-                  </div>
-                </div>
-              ))}
-            </Carousel>
-          </Reveal>
+        {/* CTA "depois dos benefícios" (ITEM 13) */}
+        <div className="flex justify-center mt-8">
+          <Link to={platformRoutes.signup}>
+            <Button size="lg" variant="outline" className="transition-transform hover:scale-105 active:scale-95">Começar agora</Button>
+          </Link>
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* How it works (ITEM 4) */}
+      <section id="como-funciona" className="bg-[var(--color-muted)] py-16 sm:py-20 overflow-hidden">
+        <HowItWorks steps={HOW_IT_WORKS_STEPS} ctaTo={platformRoutes.signup} />
+      </section>
+
+      {/* Como seu negócio pode ficar (ITEM 10) */}
+      <section id="exemplos" className="py-16 sm:py-20">
+        <BusinessShowcase demoTo={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} ctaTo={platformRoutes.signup} />
+      </section>
+
+      {/* Tour do produto (ITEM 20) */}
+      <section id="tour" className="bg-[var(--color-muted)] py-16 sm:py-20">
+        <ProductTour steps={TOUR_STEPS} ctaTo={platformRoutes.signup} />
+      </section>
+
+      {/* Pricing (ITEM 7 + calculadora de economia do ITEM 8) */}
       <section id="planos" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
         <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Sem surpresas</span>
@@ -370,8 +421,43 @@ export function LandingPage() {
                 </div>
               )}
             </div>
+
+            {/* Calculadora de economia (ITEM 8) — só aparece com pelo menos 2
+                planos carregados; o destaque de economia só aparece quando
+                dá pra calculá-lo a partir dos preços reais (ver
+                planYearlySavingsCents em utils/billing.ts). */}
+            {plans.length > 1 && (
+              <Reveal delay={150} className="mt-10 max-w-2xl mx-auto">
+                <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-5 flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+                    {plans.map((p) => (
+                      <div key={p.id} className="text-center">
+                        <p className="text-xs text-[var(--color-muted-foreground)]">{p.name || BILLING_PLAN_LABELS[p.id]}</p>
+                        <p className="text-sm font-heading font-semibold">{formatCents(planMonthlyEquivalentCents(p))}/mês</p>
+                      </div>
+                    ))}
+                  </div>
+                  {yearlySavingsCents !== null && bestValuePlan && (
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-emerald-700 border-t border-[var(--color-border)] pt-4 text-center">
+                      <PiggyBank size={16} className="shrink-0" />
+                      Com o plano {bestValuePlan.name || BILLING_PLAN_LABELS[bestValuePlan.id]} você economiza {formatCents(yearlySavingsCents)} {savingsPeriodLabel}.
+                    </div>
+                  )}
+                </div>
+              </Reveal>
+            )}
           </>
         )}
+      </section>
+
+      {/* FAQ (ITEM 15) */}
+      <section id="faq" className="bg-[var(--color-muted)] py-16 sm:py-20">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6">
+          <Reveal className="text-center mb-10">
+            <h2 className="font-heading text-2xl sm:text-3xl font-semibold">Perguntas frequentes</h2>
+          </Reveal>
+          <FAQSection items={FAQS} />
+        </div>
       </section>
 
       {/* Final CTA */}
@@ -383,7 +469,7 @@ export function LandingPage() {
             Crie sua conta agora — leva menos de 2 minutos, e você não precisa saber nada de tecnologia.
           </p>
           <Link to={platformRoutes.signup}>
-            <Button size="lg" icon={<ArrowRight size={18} />} className="transition-transform hover:scale-105 active:scale-95">Criar meu site grátis</Button>
+            <Button size="lg" icon={<ArrowRight size={18} />} className="transition-transform hover:scale-105 active:scale-95">Quero profissionalizar meu negócio</Button>
           </Link>
         </Reveal>
       </section>
@@ -397,6 +483,9 @@ export function LandingPage() {
           <Link to={legalRoutes.cookies} className="hover:text-[var(--color-foreground)]">Cookies</Link>
         </div>
       </footer>
+
+      {/* Barra de CTA fixa no mobile (ITEM 14) */}
+      <MobileStickyCTA to={platformRoutes.signup} />
     </div>
   )
 }

@@ -27,6 +27,26 @@ export function planDiscountPercent(plan: BillingPlanDef): number {
   return Math.round((plan.discountCents / plan.priceCents) * 100)
 }
 
+/** Preço final do plano dividido pelos meses do ciclo — "quanto sai por mês" mesmo em planos plurianuais/semestrais, usado na comparação de planos da landing page. */
+export function planMonthlyEquivalentCents(plan: BillingPlanDef): number {
+  return Math.round(planFinalPriceCents(plan) / Math.max(1, plan.months))
+}
+
+/**
+ * Quanto se economiza optando por `comparePlan` em vez de pagar `basePlan`
+ * (normalmente o mensal) mês a mês pelo mesmo período — usado na "calculadora
+ * de economia" da landing page (ITEM 8). Só calcula com preços REAIS já
+ * carregados (nunca inventa valor): retorna null sempre que a comparação não
+ * fizer sentido (falta algum plano, ciclo de 1 mês, ou economia <= 0), pra a
+ * UI simplesmente omitir o destaque em vez de mostrar um número forçado.
+ */
+export function planYearlySavingsCents(basePlan: BillingPlanDef | undefined, comparePlan: BillingPlanDef | undefined): number | null {
+  if (!basePlan || !comparePlan || comparePlan.months <= 1) return null
+  const costIfPaidAtBaseMonthlyRate = planMonthlyEquivalentCents(basePlan) * comparePlan.months
+  const savings = costIfPaidAtBaseMonthlyRate - planFinalPriceCents(comparePlan)
+  return savings > 0 ? savings : null
+}
+
 /** Dias restantes até o vencimento (negativo = já venceu). null = sem data definida. */
 export function daysUntil(isoDateTime: string | undefined | null): number | null {
   if (!isoDateTime) return null
