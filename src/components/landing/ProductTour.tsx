@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ImageOff, type LucideIcon } from 'lucide-react'
+import { ImageOff, Maximize2, X, type LucideIcon } from 'lucide-react'
 import { Button } from '../Form'
 import { Reveal } from '../Reveal'
 
@@ -24,6 +24,7 @@ export interface TourStep {
  */
 export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string }) {
   const [active, setActive] = useState(0)
+  const [expanded, setExpanded] = useState(false)
   const current = steps[active]
 
   return (
@@ -55,9 +56,19 @@ export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string
 
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden grid md:grid-cols-2">
           {current.image ? (
-            <div className="aspect-video md:aspect-auto bg-[var(--color-muted)] border-b md:border-b-0 md:border-r border-[var(--color-border)] overflow-hidden">
-              <img src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} className="h-full w-full object-cover object-top" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              aria-label={`Ampliar captura de tela de ${current.tab}`}
+              className="group relative aspect-video md:aspect-auto bg-[var(--color-muted)] border-b md:border-b-0 md:border-r border-[var(--color-border)] overflow-hidden cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2"
+            >
+              <img src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                <span className="flex items-center gap-1.5 rounded-full bg-black/60 text-white text-xs font-medium px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Maximize2 size={13} /> Ampliar
+                </span>
+              </span>
+            </button>
           ) : (
             <div className="aspect-video md:aspect-auto bg-[var(--color-muted)] flex flex-col items-center justify-center gap-2 text-[var(--color-muted-foreground)] border-b md:border-b-0 md:border-r border-[var(--color-border)] border-dashed p-6">
               <ImageOff size={28} strokeWidth={1.5} />
@@ -79,6 +90,37 @@ export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string
           <Button size="lg" className="transition-transform hover:scale-105 active:scale-95">Quero experimentar</Button>
         </Link>
       </div>
+
+      {expanded && current.image && (
+        <ImageLightbox src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} caption={current.title} onClose={() => setExpanded(false)} />
+      )}
+    </div>
+  )
+}
+
+/** Tela cheia ao clicar na captura de tela do tour — fecha com Esc, clique fora ou no X. */
+function ImageLightbox({ src, alt, caption, onClose }: { src: string; alt: string; caption?: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-black/85 flex items-center justify-center p-2 sm:p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
+      <button onClick={onClose} aria-label="Fechar" className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white p-2 rounded-full hover:bg-white/10 z-10">
+        <X size={24} />
+      </button>
+      <figure className="w-full max-w-4xl lg:max-w-6xl max-h-[85vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        <img src={src} alt={alt} className="max-h-[75vh] sm:max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" />
+        {caption && <figcaption className="text-white text-sm opacity-80 text-center px-8">{caption}</figcaption>}
+      </figure>
     </div>
   )
 }
