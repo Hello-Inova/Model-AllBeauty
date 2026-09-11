@@ -34,6 +34,7 @@ import { Reveal } from '../components/Reveal'
 import { HowItWorks } from '../components/landing/HowItWorks'
 import { InstagramVsSite } from '../components/landing/InstagramVsSite'
 import { ProductTour, type TourStep } from '../components/landing/ProductTour'
+import heroAtendimento from '../assets/hero/hero-atendimento.webp'
 import tourDashboard from '../assets/tour/dashboard.webp'
 import tourPersonalizacao from '../assets/tour/personalizacao.webp'
 import tourServicos from '../assets/tour/servicos.webp'
@@ -42,6 +43,7 @@ import tourSiteCliente from '../assets/tour/site-cliente.webp'
 import tourAgendamento from '../assets/tour/agendamento.webp'
 import { FAQSection, type FAQItem } from '../components/landing/FAQSection'
 import { MobileStickyCTA } from '../components/landing/MobileStickyCTA'
+import { ScrollToTopButton } from '../components/ScrollToTopButton'
 import { APP_NAME, DEFAULT_BUSINESS_SLUG } from '../config'
 import { platformRoutes, publicRoutes, legalRoutes } from '../utils/routes'
 import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents, planMonthlyEquivalentCents, planYearlySavingsCents } from '../utils/billing'
@@ -281,9 +283,16 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* Hero */}
+      {/* Hero — a foto de atendimento fica como pano de fundo da seção
+          inteira, bem esmaecida (opacity baixa na imagem + um véu gradiente
+          na cor de fundo do tema por cima, mais forte embaixo pra sumir de
+          vez na transição pra próxima seção) só pra dar textura sem brigar
+          com o texto, que continua centralizado por cima como antes. */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-muted)] to-transparent" />
+        <div className="absolute inset-0" aria-hidden="true">
+          <img src={heroAtendimento} alt="" className="h-full w-full object-cover opacity-40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-background)]/30 via-[var(--color-background)]/50 to-[var(--color-background)]" />
+        </div>
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28 text-center">
           <span className="animate-float-slow inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-3 py-1.5 rounded-full">
             <Sparkles size={13} className="animate-pulse" /> Para salões, clínicas e profissionais da beleza
@@ -532,6 +541,9 @@ export function LandingPage() {
 
       {/* Barra de CTA fixa no mobile (ITEM 14) */}
       <MobileStickyCTA to={platformRoutes.signup} />
+
+      {/* Seta flutuante "voltar ao topo" */}
+      <ScrollToTopButton />
     </div>
   )
 }
