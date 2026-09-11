@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, ImageOff, Maximize2, X, type LucideIcon } from 'lucide-react'
 import { Button } from '../Form'
@@ -159,6 +159,32 @@ function ImageLightbox({
     }
   }, [onClose, onPrev, onNext])
 
+  // Guarda só o ponto onde o dedo tocou — a troca de foto acontece no touchend,
+  // comparando com onde ele soltou.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const SWIPE_THRESHOLD_PX = 40
+
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0]
+    touchStartRef.current = t ? { x: t.clientX, y: t.clientY } : null
+  }
+
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!start) return
+    const end = e.changedTouches[0]
+    if (!end) return
+    const dx = end.clientX - start.x
+    const dy = end.clientY - start.y
+    // Só conta como "passar foto" se o arrasto for mais horizontal do que
+    // vertical (senão um gesto de rolar a página verticalmente também
+    // trocaria de foto sem querer).
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) <= Math.abs(dy)) return
+    if (dx < 0) onNext?.()
+    else onPrev?.()
+  }
+
   return (
     <div className="fixed inset-0 z-[95] bg-black/85 flex items-center justify-center p-2 sm:p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
       <button onClick={onClose} aria-label="Fechar" className="absolute top-3 right-3 sm:top-4 sm:right-4 text-white p-2 rounded-full hover:bg-white/10 z-10">
@@ -171,7 +197,13 @@ function ImageLightbox({
             onPrev()
           }}
           aria-label="Captura anterior"
-          className="absolute left-1 sm:left-6 text-white p-2 sm:p-3 rounded-full hover:bg-white/10 z-10"
+          // p-3 (não p-2 no mobile) pra manter uma área de toque de pelo
+          // menos ~44px mesmo em telas pequenas — um alvo pequeno perto da
+          // borda é fácil de errar e acaba tocando no fundo, que fecha o
+          // lightbox em vez de trocar de foto. O fundo semi-transparente
+          // (em vez de só aparecer no hover) também ajuda a mostrar onde
+          // tocar em quem não tem mouse.
+          className="absolute left-2 sm:left-6 text-white p-3 rounded-full bg-black/30 hover:bg-white/10 active:bg-white/20 z-10"
         >
           <ChevronLeft size={26} className="sm:w-8 sm:h-8" />
         </button>
@@ -183,13 +215,22 @@ function ImageLightbox({
             onNext()
           }}
           aria-label="Próxima captura"
-          className="absolute right-1 sm:right-6 text-white p-2 sm:p-3 rounded-full hover:bg-white/10 z-10"
+          className="absolute right-2 sm:right-6 text-white p-3 rounded-full bg-black/30 hover:bg-white/10 active:bg-white/20 z-10"
         >
           <ChevronRight size={26} className="sm:w-8 sm:h-8" />
         </button>
       )}
-      <figure className="w-full max-w-4xl lg:max-w-6xl max-h-[85vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
-        <img src={src} alt={alt} className="max-h-[75vh] sm:max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl" />
+      {/* Arrasta pra esquerda/direita pra trocar de foto — o jeito natural
+          de navegar no celular, onde os botões de seta acima são um alvo
+          pequeno. onTouchStart/End em vez de uma lib de gestos: é só um
+          desvio horizontal simples. */}
+      <figure
+        className="w-full max-w-4xl lg:max-w-6xl max-h-[85vh] flex flex-col items-center gap-3 touch-pan-y"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <img src={src} alt={alt} className="max-h-[75vh] sm:max-h-[78vh] max-w-full rounded-lg object-contain shadow-2xl select-none" draggable={false} />
         {caption && <figcaption className="text-white text-sm opacity-80 text-center px-8">{caption}</figcaption>}
       </figure>
     </div>
