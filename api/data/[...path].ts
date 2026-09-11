@@ -9,6 +9,7 @@ import {
 } from '../_lib/mappers.js'
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 import { MAX_VIDEOS_PER_BUSINESS, MAX_VIDEOS_LABEL } from '../../src/config/index.js'
+import { isReservedSlug } from '../../src/utils/hostContext.js'
 
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
@@ -206,6 +207,14 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
       }
       const newId = makeId('biz')
       const row = businessToRow(body.business ?? body)
+      // O slug vira o subdomínio da empresa (ex: beauty-demo.organyze.com.br)
+      // — esta é a barreira que realmente importa contra uma empresa
+      // colidir com um subdomínio reservado pela própria plataforma (o
+      // frontend já valida isso antes, mas a validação que protege o banco
+      // é esta aqui). Ver src/utils/hostContext.ts.
+      if (isReservedSlug(String(row.slug ?? ''))) {
+        throw new ApiError(400, `"${row.slug}" é um endereço reservado pela plataforma — escolha outro nome para a empresa.`)
+      }
       await sql`
         INSERT INTO businesses (
           id, slug, name, display_name, description, segment, logo, favicon, cover_image, hero_image,

@@ -8,10 +8,26 @@ import { ScrollableTable, Td, Th } from '../../components/ScrollableTable'
 import { SmartImage } from '../../components/SmartImage'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { superAdminRoutes, adminRoutes, publicRoutes } from '../../utils/routes'
+import { businessOrigin, getHostContext } from '../../utils/hostContext'
 import { DashboardCard } from '../../components/admin/DashboardCard'
 import { useToast } from '../../contexts/ToastContext'
 import { whatsappLink } from '../../utils/whatsapp'
 import { SUBSCRIPTION_STATUS_LABELS, billingCollectionMessage, daysUntil } from '../../utils/billing'
+
+// Esta tela é acessada tanto pela URL longa de sempre (organyze.com.br/super-admin,
+// modo plataforma) quanto pelo subdomínio dedicado (admin.organyze.com.br,
+// modo super-admin) — ver src/utils/hostContext.ts. No modo plataforma,
+// "ver site"/"painel administrativo" de cada empresa continuam sendo links
+// relativos de sempre (mesma origem). No modo super-admin, essas ações
+// necessariamente cruzam pro subdomínio próprio de cada empresa — por isso
+// viram URLs absolutas com uma tag <a> normal em vez de <Link>.
+const onSuperAdminSubdomain = getHostContext().mode === 'super-admin'
+function viewSiteHref(slug: string): string {
+  return onSuperAdminSubdomain ? `${businessOrigin(slug)}/` : publicRoutes.home(slug)
+}
+function businessDashboardHref(slug: string): string {
+  return onSuperAdminSubdomain ? `${businessOrigin(slug)}/admin` : adminRoutes.dashboard(slug)
+}
 
 const PLAN_LABELS: Record<string, string> = { basico: 'Básico', profissional: 'Profissional', premium: 'Premium' }
 
@@ -162,8 +178,16 @@ export function SuperAdminDashboardPage() {
                       </Td>
                       <Td>
                         <div className="flex gap-1.5">
-                          <Link to={publicRoutes.home(b.slug)} target="_blank" title="Ver site" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><ExternalLink size={15} /></Link>
-                          <Link to={adminRoutes.dashboard(b.slug)} title="Painel administrativo" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><Settings2 size={15} /></Link>
+                          {onSuperAdminSubdomain ? (
+                            <a href={viewSiteHref(b.slug)} target="_blank" rel="noreferrer" title="Ver site" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><ExternalLink size={15} /></a>
+                          ) : (
+                            <Link to={viewSiteHref(b.slug)} target="_blank" title="Ver site" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><ExternalLink size={15} /></Link>
+                          )}
+                          {onSuperAdminSubdomain ? (
+                            <a href={businessDashboardHref(b.slug)} title="Painel administrativo" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><Settings2 size={15} /></a>
+                          ) : (
+                            <Link to={businessDashboardHref(b.slug)} title="Painel administrativo" className="p-1.5 rounded-md hover:bg-[var(--color-muted)]"><Settings2 size={15} /></Link>
+                          )}
                           <button onClick={() => toggleActive(b)} title={b.active ? 'Desativar' : 'Ativar'} className="p-1.5 rounded-md hover:bg-[var(--color-muted)]">
                             {b.active ? <ToggleRight size={15} className="text-emerald-600" /> : <ToggleLeft size={15} />}
                           </button>

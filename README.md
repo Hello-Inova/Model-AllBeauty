@@ -108,7 +108,30 @@ Com o banco, o storage e as variáveis de ambiente configuradas, clique em **Dep
 
 ### Roteamento
 
-A aplicação usa **BrowserRouter** com URLs limpas (ex: `/empresa/beauty-demo`, sem `#`). O `vercel.json` já inclui a regra de rewrite necessária para que atualizar a página, compartilhar links diretos e navegar entre seções funcione corretamente em qualquer rota — inclusive dentro do `/api`, que é excluído do rewrite.
+A aplicação usa **BrowserRouter** com URLs limpas (sem `#`). O `vercel.json` já inclui a regra de rewrite necessária para que atualizar a página, compartilhar links diretos e navegar entre seções funcione corretamente em qualquer rota — inclusive dentro do `/api`, que é excluído do rewrite.
+
+#### URLs por subdomínio (opcional)
+
+Além das URLs longas de sempre (`organyze.com.br/empresa/beauty-demo`, `organyze.com.br/admin/beauty-demo`, `organyze.com.br/super-admin`), a aplicação também reconhece um **subdomínio próprio por empresa** e um subdomínio reservado para o Super Admin:
+
+| URL curta (subdomínio) | Equivalente de sempre |
+|---|---|
+| `beauty-demo.organyze.com.br/` | `organyze.com.br/empresa/beauty-demo` |
+| `beauty-demo.organyze.com.br/servicos` | `organyze.com.br/empresa/beauty-demo/servicos` |
+| `beauty-demo.organyze.com.br/login` | `organyze.com.br/admin/beauty-demo/login` |
+| `beauty-demo.organyze.com.br/admin` | `organyze.com.br/admin/beauty-demo` |
+| `admin.organyze.com.br/login` | `organyze.com.br/super-admin/login` |
+| `admin.organyze.com.br/` | `organyze.com.br/super-admin` |
+
+As duas formas convivem: as URLs longas nunca deixam de funcionar (links antigos, e-mails já enviados e o próprio domínio raiz/`www` continuam levando ao mesmo lugar), e todos os links **internos** do site/painel passam a usar automaticamente a forma curta assim que a página está sendo vista pelo subdomínio correspondente — ver `src/utils/hostContext.ts` (detecta o modo a partir do hostname) e `src/utils/routes.ts` (decide caminho curto vs. longo). Nenhuma chamada existente a `adminRoutes.*`/`publicRoutes.*`/`superAdminRoutes.*` precisou mudar.
+
+**Para ativar isso em produção**, além do domínio raiz já configurado (ver seção "Conectar o repositório" acima), é preciso:
+
+1. Na Vercel, em **Project Settings → Domains**, adicionar o domínio coringa `*.organyze.com.br`.
+2. No provedor de DNS (Registro.br ou outro), criar o registro que a Vercel indicar para esse domínio coringa — normalmente um `CNAME` com nome `*` apontando para `cname.vercel-dns.com.`. Alguns provedores (o Registro.br, por exemplo) não aceitam `*` no campo "Nome" da interface avançada de zona DNS — nesse caso, procure a opção de "domínio coringa"/"wildcard" na própria interface do provedor, ou abra um chamado com o suporte perguntando como cadastrar um registro coringa; é uma limitação da interface do provedor, não da Vercel.
+3. Slugs de empresa que colidiriam com um subdomínio reservado pela própria plataforma (`www`, `admin`, `api`, `app`, entre outros — lista completa em `RESERVED_SUBDOMAINS` em `src/utils/hostContext.ts`) são bloqueados automaticamente ao criar uma empresa nova, tanto no formulário quanto no backend.
+
+Sem o passo 1/2, as URLs longas continuam funcionando normalmente — a plataforma não depende do subdomínio coringa para operar.
 
 ---
 

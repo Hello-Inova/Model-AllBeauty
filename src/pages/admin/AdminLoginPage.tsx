@@ -7,9 +7,13 @@ import { Button, Field, Input, PasswordInput } from '../../components/Form'
 import { SmartImage } from '../../components/SmartImage'
 import { FullPageLoader, BusinessNotFound } from '../../components/StateScreens'
 import { adminRoutes } from '../../utils/routes'
+import { resolveBusinessSlug } from '../../utils/hostContext'
 
 export function AdminLoginPage() {
-  const { slug } = useParams()
+  // Na URL curta por subdomínio (beauty-demo.organyze.com.br/login) não há
+  // :slug no caminho — o slug vem do próprio hostname. Ver
+  // src/utils/hostContext.ts.
+  const slug = resolveBusinessSlug(useParams().slug)
   if (!slug) return <Navigate to="/" replace />
   return (
     <BusinessProvider slug={slug}>

@@ -446,7 +446,7 @@ async function sendPasswordResetEmail(
         SELECT id, email FROM admin_users
         WHERE business_id = ${biz.rows[0].id} AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
       `
-      admin = admins.rows[0]
+      admin = admins.rows[0] as { id: string; email: string } | undefined
       businessName = biz.rows[0].display_name
     }
   } else {
@@ -454,7 +454,7 @@ async function sendPasswordResetEmail(
       SELECT id, email FROM admin_users
       WHERE business_id IS NULL AND role = 'super_admin' AND lower(email) = ${normalizedEmail} AND active = true LIMIT 1
     `
-    admin = admins.rows[0]
+    admin = admins.rows[0] as { id: string; email: string } | undefined
   }
 
   if (!admin) return

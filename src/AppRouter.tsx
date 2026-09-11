@@ -4,6 +4,7 @@ import { ToastProvider } from './contexts/ToastContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { NotFoundPage, FullPageLoader } from './components/StateScreens'
 import { ScrollToTop } from './components/ScrollToTop'
+import { getHostContext } from './utils/hostContext'
 
 // A LandingPage é a única rota importada de forma estática (é a porta de
 // entrada mais visitada — a "/" — e não deve esperar um round-trip extra de
@@ -56,6 +57,16 @@ const SuperAdminFinancePage = lazy(() => import('./pages/superadmin/SuperAdminFi
 const SuperAdminSettingsPage = lazy(() => import('./pages/superadmin/SuperAdminSettingsPage').then((m) => ({ default: m.SuperAdminSettingsPage })))
 const SuperAdminProfilePage = lazy(() => import('./pages/superadmin/SuperAdminProfilePage').then((m) => ({ default: m.SuperAdminProfilePage })))
 
+// O hostname não muda durante a navegação client-side (trocar de
+// empresa/subdomínio sempre implica um reload de página completo, já que
+// são origens diferentes) — então é seguro calcular isso uma única vez por
+// carregamento de página, fora do componente. Ver src/utils/hostContext.ts
+// para o que cada modo significa e por que isso é o que permite URLs
+// curtas por subdomínio (ex: beauty-demo.organyze.com.br,
+// admin.organyze.com.br) sem quebrar as URLs antigas em
+// organyze.com.br/admin/beauty-demo, organyze.com.br/super-admin etc.
+const hostContext = getHostContext()
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
@@ -64,53 +75,122 @@ export default function AppRouter() {
         <AuthProvider>
           <Suspense fallback={<FullPageLoader />}>
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/comecar" element={<SignupPage />} />
+            {hostContext.mode === 'business' && (
+              <>
+                {/* URLs curtas de uma empresa no próprio subdomínio dela
+                    (ex: beauty-demo.organyze.com.br/) — mesmas páginas de
+                    sempre, só sem o /empresa/:slug ou /admin/:slug no
+                    caminho, já que o slug já está no hostname. */}
+                <Route path="/" element={<PublicBusinessGate />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="servicos" element={<ServicesPage />} />
+                  <Route path="servicos/:serviceSlug" element={<ServiceDetailPage />} />
+                  <Route path="profissionais" element={<ProfessionalsPage />} />
+                  <Route path="sobre" element={<AboutPage />} />
+                  <Route path="galeria" element={<GalleryPage />} />
+                  <Route path="contato" element={<ContactPage />} />
+                  <Route path="agendamento" element={<BookingPage />} />
+                </Route>
+                <Route path="/login" element={<AdminLoginPage />} />
+                <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+                <Route path="/admin" element={<AdminGate />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="agenda" element={<AgendaPage />} />
+                  <Route path="servicos" element={<ServicesAdminPage />} />
+                  <Route path="categorias" element={<CategoriesAdminPage />} />
+                  <Route path="profissionais" element={<ProfessionalsAdminPage />} />
+                  <Route path="clientes" element={<CustomersAdminPage />} />
+                  <Route path="galeria" element={<GalleryAdminPage />} />
+                  <Route path="videos" element={<VideosAdminPage />} />
+                  <Route path="depoimentos" element={<TestimonialsAdminPage />} />
+                  <Route path="configuracoes" element={<SettingsAdminPage />} />
+                  <Route path="backup" element={<BackupAdminPage />} />
+                  <Route path="assinatura" element={<SubscriptionAdminPage />} />
+                  <Route path="perfil" element={<ProfileAdminPage />} />
+                </Route>
+              </>
+            )}
 
-            <Route path="/empresa/:slug" element={<PublicBusinessGate />}>
-              <Route index element={<HomePage />} />
-              <Route path="servicos" element={<ServicesPage />} />
-              <Route path="servicos/:serviceSlug" element={<ServiceDetailPage />} />
-              <Route path="profissionais" element={<ProfessionalsPage />} />
-              <Route path="sobre" element={<AboutPage />} />
-              <Route path="galeria" element={<GalleryPage />} />
-              <Route path="contato" element={<ContactPage />} />
-              <Route path="agendamento" element={<BookingPage />} />
-            </Route>
+            {hostContext.mode === 'super-admin' && (
+              <>
+                {/* URL curta do painel da plataforma no subdomínio dedicado
+                    (admin.organyze.com.br) — mesmas páginas de sempre, só
+                    sem o /super-admin no caminho. */}
+                <Route path="/login" element={<SuperAdminLoginPage />} />
+                <Route path="/esqueci-senha" element={<SuperAdminForgotPasswordPage />} />
+                <Route path="/" element={<SuperAdminGate />}>
+                  <Route index element={<SuperAdminDashboardPage />} />
+                  <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />
+                  <Route path="planos" element={<SuperAdminPlansPage />} />
+                  <Route path="financeiro" element={<SuperAdminFinancePage />} />
+                  <Route path="configuracoes" element={<SuperAdminSettingsPage />} />
+                  <Route path="perfil" element={<SuperAdminProfilePage />} />
+                </Route>
+              </>
+            )}
 
-            <Route path="/admin/:slug/login" element={<AdminLoginPage />} />
-            <Route path="/admin/:slug/esqueci-senha" element={<ForgotPasswordPage />} />
+            {hostContext.mode === 'platform' && (
+              <>
+                {/* Domínio raiz/www (organyze.com.br) — as URLs longas de
+                    sempre, inalteradas. É o único modo que existe hoje, até
+                    o domínio coringa (*.organyze.com.br) ser configurado na
+                    Vercel/Registro.br; continua funcionando pra sempre,
+                    mesmo depois disso, pra não quebrar links antigos. */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/comecar" element={<SignupPage />} />
+
+                <Route path="/empresa/:slug" element={<PublicBusinessGate />}>
+                  <Route index element={<HomePage />} />
+                  <Route path="servicos" element={<ServicesPage />} />
+                  <Route path="servicos/:serviceSlug" element={<ServiceDetailPage />} />
+                  <Route path="profissionais" element={<ProfessionalsPage />} />
+                  <Route path="sobre" element={<AboutPage />} />
+                  <Route path="galeria" element={<GalleryPage />} />
+                  <Route path="contato" element={<ContactPage />} />
+                  <Route path="agendamento" element={<BookingPage />} />
+                </Route>
+
+                <Route path="/admin/:slug/login" element={<AdminLoginPage />} />
+                <Route path="/admin/:slug/esqueci-senha" element={<ForgotPasswordPage />} />
+                <Route path="/admin/:slug" element={<AdminGate />}>
+                  <Route index element={<DashboardPage />} />
+                  <Route path="agenda" element={<AgendaPage />} />
+                  <Route path="servicos" element={<ServicesAdminPage />} />
+                  <Route path="categorias" element={<CategoriesAdminPage />} />
+                  <Route path="profissionais" element={<ProfessionalsAdminPage />} />
+                  <Route path="clientes" element={<CustomersAdminPage />} />
+                  <Route path="galeria" element={<GalleryAdminPage />} />
+                  <Route path="videos" element={<VideosAdminPage />} />
+                  <Route path="depoimentos" element={<TestimonialsAdminPage />} />
+                  <Route path="configuracoes" element={<SettingsAdminPage />} />
+                  <Route path="backup" element={<BackupAdminPage />} />
+                  <Route path="assinatura" element={<SubscriptionAdminPage />} />
+                  <Route path="perfil" element={<ProfileAdminPage />} />
+                </Route>
+
+                <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
+                <Route path="/super-admin/esqueci-senha" element={<SuperAdminForgotPasswordPage />} />
+                <Route path="/super-admin" element={<SuperAdminGate />}>
+                  <Route index element={<SuperAdminDashboardPage />} />
+                  <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />
+                  <Route path="planos" element={<SuperAdminPlansPage />} />
+                  <Route path="financeiro" element={<SuperAdminFinancePage />} />
+                  <Route path="configuracoes" element={<SuperAdminSettingsPage />} />
+                  <Route path="perfil" element={<SuperAdminProfilePage />} />
+                </Route>
+              </>
+            )}
+
+            {/* Sempre montadas, em qualquer subdomínio: o link de
+                redefinição de senha carrega o próprio token (não depende de
+                contexto de empresa — ver requestOrigin() em
+                api/auth/[...action].ts, que usa a origem de onde o pedido
+                partiu) e as páginas legais não têm motivo pra variar por
+                subdomínio. */}
             <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
-            <Route path="/admin/:slug" element={<AdminGate />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="agenda" element={<AgendaPage />} />
-              <Route path="servicos" element={<ServicesAdminPage />} />
-              <Route path="categorias" element={<CategoriesAdminPage />} />
-              <Route path="profissionais" element={<ProfessionalsAdminPage />} />
-              <Route path="clientes" element={<CustomersAdminPage />} />
-              <Route path="galeria" element={<GalleryAdminPage />} />
-              <Route path="videos" element={<VideosAdminPage />} />
-              <Route path="depoimentos" element={<TestimonialsAdminPage />} />
-              <Route path="configuracoes" element={<SettingsAdminPage />} />
-              <Route path="backup" element={<BackupAdminPage />} />
-              <Route path="assinatura" element={<SubscriptionAdminPage />} />
-              <Route path="perfil" element={<ProfileAdminPage />} />
-            </Route>
-
             <Route path="/legal/termos-de-uso" element={<TermsPage />} />
             <Route path="/legal/privacidade" element={<PrivacyPolicyPage />} />
             <Route path="/legal/cookies" element={<CookiesPolicyPage />} />
-
-            <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
-            <Route path="/super-admin/esqueci-senha" element={<SuperAdminForgotPasswordPage />} />
-            <Route path="/super-admin" element={<SuperAdminGate />}>
-              <Route index element={<SuperAdminDashboardPage />} />
-              <Route path="nova-empresa" element={<SuperAdminOnboardingPage />} />
-              <Route path="planos" element={<SuperAdminPlansPage />} />
-              <Route path="financeiro" element={<SuperAdminFinancePage />} />
-              <Route path="configuracoes" element={<SuperAdminSettingsPage />} />
-              <Route path="perfil" element={<SuperAdminProfilePage />} />
-            </Route>
 
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

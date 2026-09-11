@@ -9,6 +9,7 @@ import { WeeklyHoursEditor } from '../../components/admin/WeeklyHoursEditor'
 import { slugify } from '../../utils/slug'
 import { useToast } from '../../contexts/ToastContext'
 import { adminRoutes } from '../../utils/routes'
+import { businessOrigin, getHostContext, isReservedSlug, PLATFORM_BASE_DOMAIN } from '../../utils/hostContext'
 
 const DEFAULT_HOURS: DaySchedule[] = [0, 1, 2, 3, 4, 5, 6].map((wd) => ({
   weekday: wd as DaySchedule['weekday'],
@@ -71,6 +72,13 @@ export function SuperAdminOnboardingPage() {
       toast.error('Informe o nome da empresa.')
       return
     }
+    // O slug vira o subdomínio da empresa (ex: beauty-demo.organyze.com.br)
+    // — não pode colidir com um subdomínio já reservado pela própria
+    // plataforma (admin, www, api, ...). Ver src/utils/hostContext.ts.
+    if (step === 1 && isReservedSlug(slug)) {
+      toast.error(`"${slug}" é um endereço reservado pela plataforma. Ajuste o nome da empresa para gerar outro endereço.`)
+      return
+    }
     if (step === 9 && adminPassword && adminPassword.length < 6) {
       toast.error('A senha de acesso deve ter ao menos 6 caracteres.')
       return
@@ -82,6 +90,11 @@ export function SuperAdminOnboardingPage() {
   }
 
   async function handlePublish() {
+    if (isReservedSlug(slug)) {
+      toast.error(`"${slug}" é um endereço reservado pela plataforma. Ajuste o nome da empresa (passo 1) para gerar outro endereço.`)
+      setStep(1)
+      return
+    }
     const finalAdminEmail = (adminEmail || email).trim()
     if (!finalAdminEmail) {
       toast.error('Informe o e-mail de acesso do administrador (passo 9).')
@@ -182,7 +195,17 @@ export function SuperAdminOnboardingPage() {
       }
 
       toast.success('Empresa publicada com sucesso!')
-      navigate(adminRoutes.dashboard(business.slug))
+      // Quando o Super Admin roda no próprio subdomínio (admin.organyze.com.br),
+      // o painel da empresa recém-criada vive num subdomínio DIFERENTE
+      // (business.slug.organyze.com.br/admin) — navigate() do react-router
+      // nunca cruza de origem, então precisa de um redirecionamento de
+      // página inteira. No modo plataforma de sempre (organyze.com.br),
+      // continua sendo a mesma navegação client-side de sempre.
+      if (getHostContext().mode === 'super-admin') {
+        window.location.href = `${businessOrigin(business.slug)}/admin`
+      } else {
+        navigate(adminRoutes.dashboard(business.slug))
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : null
       toast.error(message || 'Não foi possível publicar a empresa. Verifique os dados e tente novamente.')
@@ -221,7 +244,7 @@ export function SuperAdminOnboardingPage() {
               </Select>
             </Field>
             <Field label="Descrição"><TextArea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Fale um pouco sobre a empresa" /></Field>
-            <p className="text-xs text-[var(--color-muted-foreground)]">Endereço do site: /empresa/{slug || '...'}</p>
+            <p className="text-xs text-[var(--color-muted-foreground)]">Endereço do site: {slug || '...'}.{PLATFORM_BASE_DOMAIN}</p>
           </div>
         )}
 
@@ -335,7 +358,7 @@ export function SuperAdminOnboardingPage() {
 
         {step === 10 && (
           <div className="flex flex-col gap-4">
-            <p className="text-sm text-[var(--color-muted-foreground)]">Revise um resumo e publique. A empresa ficará disponível imediatamente em <strong>/empresa/{slug}</strong>.</p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">Revise um resumo e publique. A empresa ficará disponível imediatamente em <strong>{slug}.{PLATFORM_BASE_DOMAIN}</strong>.</p>
             <dl className="grid grid-cols-2 gap-y-2 text-sm rounded-lg bg-[var(--color-muted,#f5f1ea)] p-4">
               <dt className="text-[var(--color-muted-foreground)]">Nome</dt><dd className="text-right font-medium">{name || '—'}</dd>
               <dt className="text-[var(--color-muted-foreground)]">Segmento</dt><dd className="text-right font-medium">{segment}</dd>
