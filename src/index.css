@@ -111,3 +111,13 @@ body {
   50% { transform: translateY(5px); }
 }
 .animate-nudge-down { animation: nudge-down 1.6s ease-in-out infinite; }
+
+/* Soft breathing scale+opacity, used for the floating "voltar ao topo"
+   arrow (src/components/ScrollToTopButton.tsx) — calmer than Tailwind's
+   built-in .animate-pulse (which just snaps opacity up/down) so it reads as
+   an elegant nudge rather than a blinking alert. */
+@keyframes gentle-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+.animate-gentle-pulse { animation: gentle-pulse 2s ease-in-out infinite; }
