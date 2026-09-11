@@ -75,11 +75,18 @@ export function ProductTour({ steps, ctaTo }: { steps: TourStep[]; ctaTo: string
               aria-label={`Ampliar captura de tela de ${current.tab}`}
               className="group relative aspect-video md:aspect-auto bg-[var(--color-muted)] border-b md:border-b-0 md:border-r border-[var(--color-border)] overflow-hidden cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2"
             >
-              <img src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} className="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105" />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+              <img src={current.image} alt={`Tela de ${current.tab} do painel Organyze`} className="h-full w-full object-cover object-top transition duration-300 md:group-hover:scale-105" />
+              {/* Desktop/mouse: dica só aparece no hover, como antes. Em
+                  touch (celular/tablet) o navegador não dispara :hover, então
+                  essa dica nunca apareceria — por isso o selo fixo abaixo,
+                  sempre visível, é quem avisa que dá pra tocar pra ampliar. */}
+              <span className="hidden md:flex absolute inset-0 items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                 <span className="flex items-center gap-1.5 rounded-full bg-black/60 text-white text-xs font-medium px-3 py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Maximize2 size={13} /> Ampliar
                 </span>
+              </span>
+              <span className="md:hidden absolute bottom-3 right-3 flex items-center justify-center h-9 w-9 rounded-full bg-black/60 text-white shadow-lg">
+                <Maximize2 size={16} />
               </span>
             </button>
           ) : (
