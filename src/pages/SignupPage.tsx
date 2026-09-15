@@ -1,29 +1,28 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Rocket, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Rocket, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { dataRepository } from '../repositories'
-import type { BillingPlanDef } from '../types'
 import { Button, Combobox, Field, Input, PasswordInput } from '../components/Form'
 import { adminRoutes } from '../utils/routes'
-import { BILLING_PLAN_LABELS, formatCents, planDiscountPercent, planFinalPriceCents } from '../utils/billing'
 import { OTHER_SEGMENT_OPTION, SEGMENTS } from '../utils/segments'
 
 /**
  * Public, unauthenticated self-service signup — the entry point for a new
- * business owner to create their own account, pick a billing plan, and get
- * a brand-new site, with no Hello Inova step in between (see api/auth/
- * [...action].ts `register`). Payment itself happens afterwards, from the
- * Assinatura screen — this page only picks the plan and creates the
- * account; the dashboard's onboarding checklist walks the owner through
- * paying, branding, and publishing from there.
+ * business owner to create their own account and get a brand-new site, with
+ * no Hello Inova step in between (see api/auth/[...action].ts `register`).
+ * Plan choice is deliberately NOT part of this form — it used to be, but
+ * picking a plan before even seeing the product added friction to signup
+ * for no reason (payment only happens afterwards anyway). The account is
+ * created with a default billing plan and the owner picks/pays for a real
+ * plan later, from the Assinatura screen, same as choosing to upgrade at
+ * any other point — the dashboard's onboarding checklist walks them there.
  */
+const DEFAULT_BILLING_PLAN = 'mensal'
+
 export function SignupPage() {
   const navigate = useNavigate()
   const { register } = useAuth()
-  const [searchParams] = useSearchParams()
 
-  const [plans, setPlans] = useState<BillingPlanDef[]>([])
   const [businessName, setBusinessName] = useState('')
   const [segment, setSegment] = useState('')
   const [segmentFreeText, setSegmentFreeText] = useState(false)
@@ -31,18 +30,8 @@ export function SignupPage() {
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  // Pre-selected when the visitor arrives from a specific pricing card on
-  // the landing page (?plano=anual) — falls back to 'mensal' otherwise.
-  const [billingPlan, setBillingPlan] = useState(searchParams.get('plano') || 'mensal')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    dataRepository
-      .getPlans()
-      .then((p) => setPlans(p.filter((x) => x.active)))
-      .catch(() => setPlans([]))
-  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -67,7 +56,7 @@ export function SignupPage() {
       phone: whatsapp,
       adminEmail: adminEmail.trim(),
       adminPassword,
-      billingPlan,
+      billingPlan: DEFAULT_BILLING_PLAN,
     })
     setSubmitting(false)
     if (result.ok && result.businessSlug) {
@@ -86,8 +75,8 @@ export function SignupPage() {
           </span>
           <h1 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Comece agora</h1>
           <p className="text-sm text-[var(--color-muted-foreground)] mt-2 max-w-lg mx-auto">
-            Crie sua conta, escolha um plano e ganhe um site completo para agendamentos do seu negócio. Você personaliza cores, logo e
-            serviços depois — sem pressa, direto do seu painel.
+            Crie sua conta e ganhe um site completo para agendamentos do seu negócio, com 7 dias grátis. Você personaliza cores, logo,
+            serviços e escolhe seu plano depois — sem pressa, direto do seu painel.
           </p>
         </div>
 
@@ -143,38 +132,6 @@ export function SignupPage() {
             >
               <PasswordInput required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" />
             </Field>
-          </div>
-
-          <div>
-            <p className="text-sm font-medium mb-2.5">Escolha seu plano</p>
-            {plans.length === 0 ? (
-              <p className="text-sm text-[var(--color-muted-foreground)]">Carregando planos…</p>
-            ) : (
-              <div className="grid sm:grid-cols-3 gap-3">
-                {plans.map((p) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    onClick={() => setBillingPlan(p.id)}
-                    className={`text-left rounded-xl border p-4 flex flex-col gap-1.5 transition ${
-                      billingPlan === p.id ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]' : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-heading font-semibold text-sm">{p.name || BILLING_PLAN_LABELS[p.id]}</span>
-                      {billingPlan === p.id && <CheckCircle2 size={16} className="text-[var(--color-primary)]" />}
-                    </div>
-                    <p className="text-lg font-heading font-semibold">{formatCents(planFinalPriceCents(p))}</p>
-                    {p.discountCents > 0 && (
-                      <p className="text-xs text-emerald-700">{planDiscountPercent(p)}% de desconto (de {formatCents(p.priceCents)})</p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="text-xs text-[var(--color-muted-foreground)] mt-2.5">
-              O pagamento é feito depois, direto no seu painel — sua conta e seu site já ficam prontos agora.
-            </p>
           </div>
 
           <Button type="submit" icon={<Rocket size={16} />} loading={submitting} size="lg">
