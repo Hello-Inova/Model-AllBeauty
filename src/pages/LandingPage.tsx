@@ -242,7 +242,7 @@ export function LandingPage() {
           </nav>
           <div className="hidden sm:block">
             <Link to={platformRoutes.signup}>
-              <Button size="sm">Criar meu site</Button>
+              <Button size="sm">Criar meu site grátis</Button>
             </Link>
           </div>
           <button className="sm:hidden p-2 -mr-2" onClick={() => setMenuOpen((v) => !v)} aria-label="Abrir menu">
@@ -278,14 +278,14 @@ export function LandingPage() {
             <a href="#faq" onClick={() => setMenuOpen(false)} className="py-2.5 text-[var(--color-muted-foreground)]">Perguntas frequentes</a>
           </nav>
           {/* CTAs em destaque, agrupados no rodapé do menu — "Ver demonstração"
-              (outline) sempre acima de "Criar meu site" (preenchido), nessa
+              (outline) sempre acima de "Criar meu site grátis" (preenchido), nessa
               ordem, a pedido do usuário. */}
           <div className="px-4 pb-6 shrink-0 flex flex-col gap-2.5">
             <Link to={publicRoutes.home(DEFAULT_BUSINESS_SLUG)} onClick={() => setMenuOpen(false)}>
               <Button size="sm" variant="outline" className="w-full">Ver demonstração</Button>
             </Link>
             <Link to={platformRoutes.signup} onClick={() => setMenuOpen(false)}>
-              <Button size="sm" className="w-full">Criar meu site</Button>
+              <Button size="sm" className="w-full">Criar meu site grátis</Button>
             </Link>
           </div>
         </div>

@@ -58,7 +58,7 @@ export function HowItWorks({ steps, ctaTo }: { steps: Step[]; ctaTo: string }) {
 
       <div className="flex justify-center mt-12">
         <Link to={ctaTo}>
-          <Button size="lg" className="transition-transform hover:scale-105 active:scale-95">Criar meu site</Button>
+          <Button size="lg" className="transition-transform hover:scale-105 active:scale-95">Criar meu site grátis</Button>
         </Link>
       </div>
     </div>

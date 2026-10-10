@@ -23,7 +23,7 @@ export function MobileStickyCTA({ to }: { to: string }) {
         to={to}
         className="flex items-center justify-center gap-2 h-12 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-medium text-sm transition hover:opacity-90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2"
       >
-        <Rocket size={17} /> Criar meu site
+        <Rocket size={17} /> Criar meu site grátis
       </Link>
     </div>
   )
