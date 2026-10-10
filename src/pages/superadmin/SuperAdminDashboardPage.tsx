@@ -31,7 +31,7 @@ function businessDashboardHref(slug: string): string {
 
 const PLAN_LABELS: Record<string, string> = { basico: 'Básico', profissional: 'Profissional', premium: 'Premium' }
 
-const EMPTY_SETTINGS: PlatformSettings = { pixKey: '', pixKeyOwnerName: '' }
+const EMPTY_SETTINGS: PlatformSettings = { pixKey: '', pixKeyOwnerName: '', trialDays: 7 }
 
 export function SuperAdminDashboardPage() {
   const [businesses, setBusinesses] = useState<Business[]>([])

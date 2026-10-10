@@ -58,6 +58,32 @@ export function daysUntil(isoDateTime: string | undefined | null): number | null
 /** A partir de quantos dias restantes o alerta de vencimento vira um aviso ativo com botão de pagamento. */
 export const EXPIRATION_WARNING_DAYS = 5
 
+/** Dias restantes do teste grátis configurado (negativo = já venceu). null = empresa sem trial definido (cadastrada antes desse recurso, ou já paga). */
+export function trialDaysRemaining(business: Pick<Business, 'trialEndsAt'>): number | null {
+  return daysUntil(business.trialEndsAt)
+}
+
+/**
+ * Decide se a empresa tem acesso liberado (site publicado + painel
+ * administrativo funcionando) com base em assinatura + teste grátis
+ * dias — não confundir com `business.active`, que é o botão de
+ * ativar/desativar manual do superadmin, independente disso (ver
+ * PublicBusinessGate/AdminGate, que checam os dois).
+ *
+ * - 'isento' (conta da casa) e assinatura 'ativa' sempre têm acesso.
+ * - Sem uma dessas, depende do teste grátis ainda não ter vencido.
+ * - Empresas cadastradas antes desse recurso não têm `trialEndsAt` — para
+ *   elas esta função sempre retorna true, nunca bloqueando retroativamente
+ *   quem já vinha usando a plataforma sem esse controle.
+ */
+export function hasBillingAccess(business: Pick<Business, 'billingType' | 'subscriptionStatus' | 'trialEndsAt'>): boolean {
+  if (business.billingType === 'isento') return true
+  if (business.subscriptionStatus === 'ativa') return true
+  if (!business.trialEndsAt) return true
+  const days = daysUntil(business.trialEndsAt)
+  return days !== null && days >= 0
+}
+
 export function billingCollectionMessage(
   business: Pick<Business, 'displayName'>,
   plan: BillingPlanDef | undefined,

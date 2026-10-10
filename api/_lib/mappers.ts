@@ -49,6 +49,7 @@ export function rowToBusiness(r: any) {
     billingPlan: r.billing_plan,
     subscriptionStatus: r.subscription_status,
     planExpiresAt: r.plan_expires_at ?? undefined,
+    trialEndsAt: r.trial_ends_at ?? undefined,
     asaasCustomerId: r.asaas_customer_id ?? undefined,
     asaasSubscriptionId: r.asaas_subscription_id ?? undefined,
     cardLast4: r.card_last4 ?? undefined,
@@ -96,9 +97,11 @@ export function businessToRow(b: any) {
     working_hours: JSON.stringify(b.workingHours ?? []),
     booking_policies: JSON.stringify(b.bookingPolicies ?? {}),
     // Só billing_type/billing_plan aqui — os demais campos de assinatura
-    // (subscription_status, plan_expires_at, asaas_*, card_*) são escritos
-    // exclusivamente por api/billing/[...action].ts e api/webhooks/asaas.ts
-    // via SQL direto, nunca através deste merge genérico.
+    // (subscription_status, plan_expires_at, trial_ends_at, asaas_*, card_*)
+    // são escritos exclusivamente por api/billing/[...action].ts,
+    // api/webhooks/asaas.ts, e — só no caso de trial_ends_at — uma única vez
+    // na criação da empresa (api/auth/[...action].ts / POST de
+    // api/data/[...path].ts), nunca através deste merge genérico.
     billing_type: b.billingType,
     billing_plan: b.billingPlan,
   }
@@ -132,6 +135,7 @@ export function rowToPlatformSettings(r: any) {
   return {
     pixKey: r.pix_key ?? '',
     pixKeyOwnerName: r.pix_key_owner_name ?? '',
+    trialDays: Number(r.trial_days ?? 7),
   }
 }
 

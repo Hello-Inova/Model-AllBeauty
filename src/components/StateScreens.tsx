@@ -67,3 +67,24 @@ export function BusinessInactiveScreen({ name }: { name: string }) {
     </div>
   )
 }
+
+/**
+ * Mostrada aos VISITANTES do site público quando o teste grátis configurado
+ * da empresa venceu sem uma assinatura ativa (ver hasBillingAccess() em
+ * src/utils/billing.ts) — diferente de BusinessInactiveScreen acima, que é
+ * o botão manual "ativo/inativo" do superadmin. O dono da empresa vê o
+ * equivalente disso no painel administrativo via SubscribeGate, com um
+ * botão para assinar; aqui, do lado do cliente final, não há ação possível
+ * além de voltar mais tarde.
+ */
+export function BusinessTrialExpiredScreen({ name }: { name: string }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-center gap-4 px-6">
+      <Building2 size={40} className="text-[var(--color-muted-foreground,#6b625a)]" />
+      <h1 className="font-heading text-2xl font-semibold">O site se encontra desativado</h1>
+      <p className="text-[var(--color-muted-foreground,#6b625a)] max-w-md">
+        O período de teste grátis de {name} chegou ao fim. Volte em breve — o responsável pelo negócio já foi avisado para reativar o site.
+      </p>
+    </div>
+  )
+}

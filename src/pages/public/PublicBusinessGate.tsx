@@ -1,8 +1,9 @@
 import { Navigate, Outlet, useParams } from 'react-router-dom'
 import { BusinessProvider, useBusinessContext } from '../../contexts/BusinessContext'
-import { FullPageLoader, BusinessNotFound, BusinessInactiveScreen } from '../../components/StateScreens'
+import { FullPageLoader, BusinessNotFound, BusinessInactiveScreen, BusinessTrialExpiredScreen } from '../../components/StateScreens'
 import { PublicLayout } from '../../layouts/PublicLayout'
 import { resolveBusinessSlug } from '../../utils/hostContext'
+import { hasBillingAccess } from '../../utils/billing'
 
 export function PublicBusinessGate() {
   // Na URL curta por subdomínio (beauty-demo.organyze.com.br/) não há
@@ -22,6 +23,7 @@ function PublicBusinessGateInner() {
   if (loading) return <FullPageLoader />
   if (notFound || !business) return <BusinessNotFound />
   if (!business.active) return <BusinessInactiveScreen name={business.displayName} />
+  if (!hasBillingAccess(business)) return <BusinessTrialExpiredScreen name={business.displayName} />
   return (
     <PublicLayout business={business}>
       <Outlet />

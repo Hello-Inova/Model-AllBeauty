@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CreditCard, CalendarClock, CheckCircle2, ShieldCheck } from 'lucide-react'
+import { CreditCard, CalendarClock, CheckCircle2, ShieldCheck, Clock, AlertTriangle } from 'lucide-react'
 import { useBusinessContext, useCurrentBusiness } from '../../contexts/BusinessContext'
 import { dataRepository } from '../../repositories'
 import { getBillingStatus, subscribeBilling, type BillingStatusWithHistory } from '../../services/billing'
@@ -11,6 +11,7 @@ import {
   BILLING_PLAN_LABELS,
   SUBSCRIPTION_STATUS_LABELS,
   daysUntil,
+  trialDaysRemaining,
   formatCents,
   planDiscountPercent,
   planFinalPriceCents,
@@ -77,12 +78,32 @@ export function SubscriptionAdminPage() {
     await Promise.all([load(), refresh()])
   }
 
+  // Só faz sentido falar de teste grátis enquanto a empresa nunca assinou
+  // (canChoosePlan) — depois da primeira assinatura o trial deixa de ser
+  // relevante, mesmo que trialEndsAt continue no registro.
+  const trialDays = canChoosePlan ? trialDaysRemaining(business) : null
+
   return (
     <div className="flex flex-col gap-5">
       <div>
         <h1 className="font-heading text-2xl font-semibold">Assinatura</h1>
         <p className="text-sm text-[var(--color-muted-foreground)]">Gerencie o plano e o cartão usado para pagar a mensalidade da plataforma.</p>
       </div>
+
+      {trialDays !== null && trialDays >= 0 && (
+        <div className="flex items-center gap-2.5 rounded-lg bg-blue-50 text-blue-900 text-sm px-4 py-3 border border-blue-100">
+          <Clock size={16} className="shrink-0" />
+          {trialDays === 0
+            ? 'Seu teste grátis termina hoje. Assine um plano abaixo para manter o site no ar sem interrupção.'
+            : `Você está no teste grátis — faltam ${trialDays} dia${trialDays === 1 ? '' : 's'}. Assine um plano abaixo a qualquer momento para manter o site no ar sem interrupção quando o teste acabar.`}
+        </div>
+      )}
+      {trialDays !== null && trialDays < 0 && (
+        <div className="flex items-center gap-2.5 rounded-lg bg-amber-50 text-amber-900 text-sm px-4 py-3 border border-amber-200">
+          <AlertTriangle size={16} className="shrink-0" />
+          Seu teste grátis acabou e o site saiu do ar para os clientes. Assine um plano abaixo para reativá-lo agora.
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-4">
         <SectionCard title="Status atual">

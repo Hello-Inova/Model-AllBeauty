@@ -79,8 +79,8 @@ export function SuperAdminOnboardingPage() {
       toast.error(`"${slug}" é um endereço reservado pela plataforma. Ajuste o nome da empresa para gerar outro endereço.`)
       return
     }
-    if (step === 9 && adminPassword && adminPassword.length < 6) {
-      toast.error('A senha de acesso deve ter ao menos 6 caracteres.')
+    if (step === 9 && adminPassword && adminPassword.length < 10) {
+      toast.error('A senha de acesso deve ter ao menos 10 caracteres.')
       return
     }
     if (step < 10) setStep((s) => (s + 1) as Step)
@@ -101,8 +101,8 @@ export function SuperAdminOnboardingPage() {
       setStep(9)
       return
     }
-    if (adminPassword.length < 6) {
-      toast.error('A senha de acesso deve ter ao menos 6 caracteres (passo 9).')
+    if (adminPassword.length < 10) {
+      toast.error('A senha de acesso deve ter ao menos 10 caracteres (passo 9).')
       setStep(9)
       return
     }
@@ -348,7 +348,7 @@ export function SuperAdminOnboardingPage() {
               <Field label="E-mail de acesso" required hint="Se deixar em branco, será usado o e-mail de contato.">
                 <Input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder={email || 'admin@empresa.com'} />
               </Field>
-              <Field label="Senha de acesso" required hint="Mínimo de 6 caracteres.">
+              <Field label="Senha de acesso" required hint="Mínimo de 10 caracteres.">
                 <PasswordInput value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
               </Field>
             </div>

@@ -103,6 +103,14 @@ export interface Business {
   billingPlan: BillingPlanId
   subscriptionStatus: SubscriptionStatus
   planExpiresAt?: string
+  // Fim do teste grátis configurado, gravado uma única vez na criação da
+  // empresa (ver register() em api/auth/[...action].ts) — nunca alterável
+  // pelo PATCH genérico de empresas (mesmo tratamento de subscriptionStatus
+  // acima). undefined em empresas cadastradas antes desse recurso: para
+  // elas, hasBillingAccess() (src/utils/billing.ts) nunca bloqueia
+  // automaticamente por trial vencido — só o toggle manual `active` do
+  // superadmin, como já era antes.
+  trialEndsAt?: string
   asaasCustomerId?: string
   asaasSubscriptionId?: string
   cardLast4?: string
@@ -145,6 +153,8 @@ export interface BillingTransaction {
 export interface PlatformSettings {
   pixKey: string
   pixKeyOwnerName: string
+  /** Duração aplicada ao teste de empresas criadas a partir desta configuração. */
+  trialDays: number
 }
 
 /** Resumo financeiro da plataforma (Gestão Financeira do Super Admin). Somente leitura. */

@@ -258,6 +258,9 @@ class ApiProvider implements DataRepository {
   async getPlatformSettings(): Promise<PlatformSettings> {
     return get('platform-settings')
   }
+  async getPublicPlatformSettings(): Promise<Pick<PlatformSettings, 'trialDays'>> {
+    return get(`platform-settings${qs({ action: 'public' })}`)
+  }
   async updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings> {
     return patch('platform-settings', data)
   }

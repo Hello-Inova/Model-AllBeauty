@@ -31,6 +31,7 @@
 //     immediately; it is never logged or persisted (only card brand + last 4
 //     digits, returned by Asaas itself, are stored for display).
 import { ApiError } from './db.js'
+import { timingSafeEqual } from 'node:crypto'
 
 function baseUrl(): string {
   const env = (process.env.ASAAS_ENV ?? 'sandbox').toLowerCase()
@@ -137,5 +138,8 @@ export function verifyAsaasWebhookToken(headerToken: string | undefined): boolea
   // don't silently accept everything — but don't hard-fail existing installs
   // either. Callers should treat this as "unverified" and log accordingly.
   if (!expected) return false
-  return headerToken === expected
+  if (!headerToken) return false
+  const actualBuffer = Buffer.from(headerToken)
+  const expectedBuffer = Buffer.from(expected)
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
 }

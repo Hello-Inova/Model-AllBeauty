@@ -9,6 +9,7 @@ import {
   type AsaasCreditCard,
   type AsaasCreditCardHolderInfo,
 } from '../_lib/asaas.js'
+import { requireSameOrigin } from '../_lib/http.js'
 
 // Consolidated billing endpoint (same rationale as api/auth and api/data —
 // keeps the Vercel Functions count low): POST /api/billing/subscribe and
@@ -73,6 +74,7 @@ const VALID_BILLING_PLANS = new Set(['mensal', 'semestral', 'anual'])
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = getAction(req)
   try {
+    requireSameOrigin(req)
     if (action === 'subscribe' && req.method === 'POST') return await subscribe(req, res)
     if (action === 'status' && req.method === 'GET') return await status(req, res)
     res.status(404).json({ error: 'Rota de cobrança não encontrada.' })

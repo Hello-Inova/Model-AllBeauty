@@ -122,6 +122,7 @@ function withAnnualCentered(list: BillingPlanDef[]): BillingPlanDef[] {
 
 export function LandingPage() {
   const [plans, setPlans] = useState<BillingPlanDef[]>([])
+  const [trialDays, setTrialDays] = useState(7)
   const [menuOpen, setMenuOpen] = useState(false)
   const [planIndex, setPlanIndex] = useState(0)
   const [featuresExpanded, setFeaturesExpanded] = useState(false)
@@ -132,6 +133,13 @@ export function LandingPage() {
       .getPlans()
       .then((p) => setPlans(p.filter((x) => x.active)))
       .catch(() => setPlans([]))
+  }, [])
+
+  useEffect(() => {
+    dataRepository
+      .getPublicPlatformSettings()
+      .then((settings) => setTrialDays(settings.trialDays))
+      .catch(() => setTrialDays(7))
   }, [])
 
   // Ao carregar os planos, o carrossel do mobile abre direto no plano anual
@@ -312,7 +320,9 @@ export function LandingPage() {
               <Button size="lg" variant="outline" className="transition-transform hover:scale-105 active:scale-95">Ver site de demonstração</Button>
             </Link>
           </div>
-          <p className="text-xs text-[var(--color-muted-foreground)] mt-4">Sua conta e seu site ficam prontos na hora — o pagamento você faz depois, direto no painel.</p>
+          <p className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-4 py-2 mt-5">
+            <CheckCircle2 size={15} /> Teste grátis por {trialDays} dia{trialDays === 1 ? '' : 's'} — sem cobrança no cadastro
+          </p>
         </div>
       </section>
 
@@ -400,7 +410,7 @@ export function LandingPage() {
         <Reveal className="text-center max-w-xl mx-auto mb-12">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-primary)]">Sem surpresas</span>
           <h2 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Planos para todo tamanho de negócio</h2>
-          <p className="text-sm text-[var(--color-muted-foreground)] mt-2">Quanto maior o ciclo, maior o desconto. Cancele quando quiser.</p>
+          <p className="text-sm text-[var(--color-muted-foreground)] mt-2">Teste todos os recursos grátis por {trialDays} dia{trialDays === 1 ? '' : 's'}. Depois, escolha o plano ideal e cancele quando quiser.</p>
         </Reveal>
         {plans.length === 0 ? (
           <p className="text-sm text-[var(--color-muted-foreground)] text-center">Carregando planos…</p>

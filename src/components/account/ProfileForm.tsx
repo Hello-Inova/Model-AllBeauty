@@ -73,8 +73,8 @@ function PasswordSection() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (newPassword.length < 6) {
-      toast.error('A nova senha precisa ter pelo menos 6 caracteres.')
+    if (newPassword.length < 10) {
+      toast.error('A nova senha precisa ter pelo menos 10 caracteres.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -96,7 +96,7 @@ function PasswordSection() {
   }
 
   return (
-    <SectionCard title="Senha" description="Use uma senha com pelo menos 6 caracteres.">
+    <SectionCard title="Senha" description="Use uma senha com pelo menos 10 caracteres.">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Field label="Senha atual" required>
           <PasswordInput required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" />

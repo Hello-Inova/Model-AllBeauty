@@ -28,8 +28,8 @@ export function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
-    if (password.length < 6) {
-      setError('A nova senha deve ter pelo menos 6 caracteres.')
+    if (password.length < 10) {
+      setError('A nova senha deve ter pelo menos 10 caracteres.')
       return
     }
     if (password !== confirmPassword) {
@@ -72,7 +72,7 @@ export function ResetPasswordPage() {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Field label="Nova senha" htmlFor="password" hint="Pelo menos 6 caracteres.">
+            <Field label="Nova senha" htmlFor="password" hint="Pelo menos 10 caracteres.">
               <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
             </Field>
             <Field label="Confirmar nova senha" htmlFor="confirmPassword" error={error ?? undefined}>

@@ -4,6 +4,7 @@ import { issueSignedToken } from '@vercel/blob'
 import { ApiError } from './_lib/db.js'
 import { requireSession } from './_lib/auth.js'
 import { ACCEPTED_VIDEO_TYPES, MAX_UPLOAD_VIDEO_BYTES } from '../src/config/index.js'
+import { requireSameOrigin } from './_lib/http.js'
 
 // ---------------------------------------------------------------------------
 // Vídeos institucionais (até 40s cada) são grandes o bastante para estourar
@@ -29,6 +30,7 @@ import { ACCEPTED_VIDEO_TYPES, MAX_UPLOAD_VIDEO_BYTES } from '../src/config/inde
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    requireSameOrigin(req)
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Método não permitido.' })
       return

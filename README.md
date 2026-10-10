@@ -80,6 +80,8 @@ O sistema usa **Vercel Postgres** (banco de dados) e **Vercel Blob** (armazename
 >
 > **Banco já existente (deploy anterior ao limite de tentativas de login)?** Execute também [`db/migration-login-attempts.sql`](./db/migration-login-attempts.sql) — cria a tabela `login_attempts` usada para bloquear logins após 3 tentativas incorretas por dia (veja [Segurança](#segurança)). Também idempotente (`CREATE TABLE IF NOT EXISTS`).
 
+> **Banco já existente (período de teste configurável)?** Execute também [`db/migration-platform-trial-settings.sql`](./db/migration-platform-trial-settings.sql). A migração adiciona `trial_days` às configurações globais com o valor inicial de 7 dias; depois disso, o período pode ser alterado em **Super Admin → Configurações da plataforma**.
+
 > Se quiser gerar um novo `db/seed.sql` com senhas diferentes (por exemplo, antes de entregar o sistema a um cliente), rode `npm run generate-seed` neste projeto — o script reaproveita os dados de demonstração já existentes em `src/data/demoData.ts`, gera senhas aleatórias novas e imprime as credenciais no terminal uma única vez.
 
 ### 3. Criar o armazenamento de imagens (Blob)
@@ -94,6 +96,7 @@ Em **Settings → Environment Variables**, adicione:
 | Nome | Valor |
 |---|---|
 | `JWT_SECRET` | Uma string longa e aleatória (ex: gere com `openssl rand -base64 48`). Usada para assinar as sessões de login — **nunca reutilize um valor de exemplo em produção**. |
+| `PUBLIC_APP_URL` | URL pública canônica, com HTTPS (ex: `https://organyze.com.br`). Usada para gerar links de redefinição sem confiar no cabeçalho `Host` da requisição. |
 | `ASAAS_API_KEY` | Chave de API da conta [Asaas](https://www.asaas.com) da Hello Inova (**Configurações → Integrações → API** dentro do painel Asaas). Usada para cobrar a mensalidade das empresas — veja [Assinaturas e cobrança (Asaas)](#assinaturas-e-cobrança-asaas). |
 | `ASAAS_ENV` | `production` para cobrar de verdade, ou `sandbox` para testar sem movimentar dinheiro real. **Se não for definida, o sistema assume `sandbox` por padrão** (proteção contra deploy mal configurado cobrar dinheiro real por engano) — ou seja, é preciso definir explicitamente `production` quando estiver pronto para cobrar. |
 | `ASAAS_WEBHOOK_TOKEN` | Um segredo qualquer definido por você (ex: gere com `openssl rand -hex 24`) — cadastrado tanto aqui quanto no webhook configurado no painel Asaas (passo 3 da seção de assinaturas), para o sistema confirmar que os avisos de pagamento recebidos realmente vieram do Asaas. |
@@ -297,6 +300,7 @@ db/
 ├── schema.sql            DDL de todas as tabelas (rodar uma vez, na criação do banco)
 ├── migration-billing.sql Migração idempotente das tabelas/colunas de assinatura, para bancos já existentes
 ├── migration-login-attempts.sql Migração idempotente da tabela de limite de tentativas de login, para bancos já existentes
+├── migration-platform-trial-settings.sql Período global de teste grátis para novas empresas
 └── seed.sql              Dados de demonstração + super admin (gerado por scripts/generate-seed.mts)
 
 scripts/

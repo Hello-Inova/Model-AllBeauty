@@ -48,6 +48,8 @@ export interface SessionPayload {
 }
 
 const COOKIE_NAME = 'wl_session'
+const SESSION_ISSUER = 'organyze-api'
+const SESSION_AUDIENCE = 'organyze-admin'
 // Logout automático diário: a sessão (cookie + JWT) expira 24h depois do
 // login, sempre — não é renovada nem estendida por atividade em nenhum lugar
 // do código (ver api/auth/[...action].ts: nenhuma rota reassina o cookie
@@ -62,11 +64,18 @@ function secretKey(): Uint8Array {
   if (!secret) {
     throw new ApiError(500, 'JWT_SECRET não configurado no projeto Vercel.')
   }
+  if (Buffer.byteLength(secret, 'utf8') < 32) {
+    throw new ApiError(500, 'JWT_SECRET deve ter pelo menos 32 bytes.')
+  }
   return new TextEncoder().encode(secret)
 }
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10)
+}
+
+export function isAcceptableNewPassword(password: unknown): password is string {
+  return typeof password === 'string' && password.length >= 10 && Buffer.byteLength(password, 'utf8') <= 72
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -96,6 +105,8 @@ export async function signSession(payload: SessionPayload): Promise<string> {
   return new SignJWT({ businessId: payload.businessId, role: payload.role, email: payload.email })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
+    .setIssuer(SESSION_ISSUER)
+    .setAudience(SESSION_AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
     .sign(secretKey())
@@ -128,12 +139,34 @@ export async function getSession(req: VercelRequest): Promise<SessionPayload | n
   const token = cookies[COOKIE_NAME]
   if (!token) return null
   try {
-    const { payload } = await jwtVerify(token, secretKey())
+    const { payload } = await jwtVerify(token, secretKey(), {
+      algorithms: ['HS256'],
+      issuer: SESSION_ISSUER,
+      audience: SESSION_AUDIENCE,
+    })
+    const subject = typeof payload.sub === 'string' ? payload.sub : ''
+    if (!subject) return null
+
+    // JWTs prove that the cookie was issued by us, but authorization must
+    // still reflect the current database state. This immediately revokes a
+    // disabled/deleted user and applies role or tenant changes without
+    // waiting for the 24-hour token expiry.
+    const { rows } = await sql`
+      SELECT id, business_id, role, email, active
+      FROM admin_users
+      WHERE id = ${subject}
+      LIMIT 1
+    `
+    const admin = rows[0]
+    const role = admin?.role as AdminRole | undefined
+    if (!admin?.active || !role || !['super_admin', 'owner', 'manager', 'staff'].includes(role)) return null
+    if (role === 'super_admin' ? admin.business_id !== null : !admin.business_id) return null
+
     return {
-      sub: String(payload.sub),
-      businessId: (payload.businessId as string | null) ?? null,
-      role: payload.role as AdminRole,
-      email: String(payload.email ?? ''),
+      sub: admin.id,
+      businessId: admin.business_id ?? null,
+      role,
+      email: String(admin.email ?? ''),
     }
   } catch {
     return null
@@ -209,6 +242,12 @@ export async function registerFailedLoginAttempt(scope: string): Promise<number>
 /** Limpa o contador após um login bem-sucedido. */
 export async function clearLoginAttempts(scope: string): Promise<void> {
   await sql`DELETE FROM login_attempts WHERE scope = ${scope}`
+}
+
+/** Generic daily abuse guard backed by the same atomic counter table. */
+export async function enforceDailyRateLimit(scope: string, limit: number): Promise<void> {
+  const count = await registerFailedLoginAttempt(scope)
+  if (count > limit) throw new ApiError(429, 'Muitas solicitações. Tente novamente mais tarde.')
 }
 
 /** Mensagem de credenciais inválidas, com aviso de tentativas restantes quando fizer sentido. Só é chamada enquanto ainda restam tentativas — ao esgotar o limite, o chamador usa LOGIN_RECOVERY_MESSAGE em vez desta (ver failLoginAttempt). */

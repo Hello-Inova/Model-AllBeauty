@@ -63,6 +63,10 @@ CREATE TABLE IF NOT EXISTS businesses (
   -- pelo PATCH genérico de empresas (ver api/data/[...path].ts).
   subscription_status     text NOT NULL DEFAULT 'sem_assinatura',
   plan_expires_at         timestamptz,
+  -- trial_ends_at: fim do teste grátis configurado pelo Super Admin, gravado uma única vez na
+  -- criação da empresa (nunca pelo PATCH genérico). NULL = empresa sem
+  -- prazo de trial definido (nunca bloqueada automaticamente por isso).
+  trial_ends_at           timestamptz,
   asaas_customer_id       text,
   asaas_subscription_id   text,
   card_last4              text,
@@ -317,6 +321,8 @@ CREATE TABLE IF NOT EXISTS platform_settings (
   id                   text PRIMARY KEY DEFAULT 'default',
   pix_key              text NOT NULL DEFAULT '',
   pix_key_owner_name   text NOT NULL DEFAULT '',
+  trial_days           integer NOT NULL DEFAULT 7 CHECK (trial_days BETWEEN 1 AND 90),
   updated_at           timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS trial_days integer NOT NULL DEFAULT 7 CHECK (trial_days BETWEEN 1 AND 90);
 INSERT INTO platform_settings (id) VALUES ('default') ON CONFLICT (id) DO NOTHING;

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Rocket, Sparkles } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Button, Combobox, Field, Input, PasswordInput } from '../components/Form'
 import { adminRoutes } from '../utils/routes'
 import { OTHER_SEGMENT_OPTION, SEGMENTS } from '../utils/segments'
+import { dataRepository } from '../repositories'
 
 /**
  * Public, unauthenticated self-service signup — the entry point for a new
@@ -32,6 +33,14 @@ export function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [trialDays, setTrialDays] = useState(7)
+
+  useEffect(() => {
+    dataRepository
+      .getPublicPlatformSettings()
+      .then((settings) => setTrialDays(settings.trialDays))
+      .catch(() => setTrialDays(7))
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,8 +49,8 @@ export function SignupPage() {
       setError('Informe o nome do seu negócio.')
       return
     }
-    if (adminPassword.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres.')
+    if (adminPassword.length < 10) {
+      setError('A senha deve ter pelo menos 10 caracteres.')
       return
     }
     if (confirmPassword !== adminPassword) {
@@ -75,7 +84,7 @@ export function SignupPage() {
           </span>
           <h1 className="font-heading text-2xl sm:text-3xl font-semibold mt-2">Comece agora</h1>
           <p className="text-sm text-[var(--color-muted-foreground)] mt-2 max-w-lg mx-auto">
-            Crie sua conta e ganhe um site completo para agendamentos do seu negócio, com 7 dias grátis. Você personaliza cores, logo,
+            Crie sua conta e ganhe um site completo para agendamentos do seu negócio, com {trialDays} dia{trialDays === 1 ? '' : 's'} grátis. Você personaliza cores, logo,
             serviços e escolhe seu plano depois — sem pressa, direto do seu painel.
           </p>
         </div>
@@ -121,7 +130,7 @@ export function SignupPage() {
             <Field label="Seu e-mail de acesso" required>
               <Input required type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="voce@seunegocio.com" />
             </Field>
-            <Field label="Crie uma senha" required hint="Mínimo de 6 caracteres">
+            <Field label="Crie uma senha" required hint="Mínimo de 10 caracteres">
               <PasswordInput required value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••" />
             </Field>
             <Field

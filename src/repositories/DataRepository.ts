@@ -124,6 +124,7 @@ export interface DataRepository {
   getPlans(): Promise<BillingPlanDef[]>
   updatePlan(id: string, data: Partial<Pick<BillingPlanDef, 'name' | 'priceCents' | 'discountCents' | 'active'>>): Promise<BillingPlanDef>
   getPlatformSettings(): Promise<PlatformSettings>
+  getPublicPlatformSettings(): Promise<Pick<PlatformSettings, 'trialDays'>>
   updatePlatformSettings(data: Partial<PlatformSettings>): Promise<PlatformSettings>
 
   // ---- Gestão Financeira (Super Admin) -------------------------------------

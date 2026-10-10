@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { sql, ApiError, notFound } from '../_lib/db.js'
-import { getSession, requireSession, requireSuperAdmin, requireBusinessAccess, hashPassword } from '../_lib/auth.js'
+import { getSession, requireSession, requireSuperAdmin, requireBusinessAccess, hashPassword, isAcceptableNewPassword, enforceDailyRateLimit } from '../_lib/auth.js'
 import {
   rowToBusiness, businessToRow,
   rowToCategory, rowToService, rowToProfessional, rowToCustomer,
@@ -10,6 +10,7 @@ import {
 import { makeId, makeAppointmentCode } from '../../src/utils/id.js'
 import { MAX_VIDEOS_PER_BUSINESS, MAX_VIDEOS_LABEL } from '../../src/config/index.js'
 import { isReservedSlug } from '../../src/utils/hostContext.js'
+import { clientIpFingerprint, requireSameOrigin } from '../_lib/http.js'
 
 // ---------------------------------------------------------------------------
 // One catch-all function backs the entire data API (every entity the admin
@@ -60,8 +61,15 @@ function strParam(req: VercelRequest, key: string): string | undefined {
   return String(Array.isArray(v) ? v[0] : v)
 }
 
+function publicBusinessView(row: any) {
+  const business = rowToBusiness(row)
+  const { asaasCustomerId: _customer, asaasSubscriptionId: _subscription, cardLast4: _last4, cardBrand: _brand, ...safe } = business
+  return safe
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    requireSameOrigin(req)
     const resource = resourceOf(req)
 
     if (resource === 'businesses') return await businesses(req, res)
@@ -97,7 +105,7 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
   if (slug !== undefined) {
     const { rows } = await sql`SELECT * FROM businesses WHERE lower(slug) = lower(${slug}) LIMIT 1`
     if (rows.length === 0) return res.status(200).json(null)
-    return res.status(200).json(rowToBusiness(rows[0]))
+    return res.status(200).json(publicBusinessView(rows[0]))
   }
 
   if (action === 'import-backup' && method === 'POST') {
@@ -202,11 +210,16 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
       requireSuperAdmin(session)
       const body = readBody(req)
       const { adminEmail, adminPassword } = body
-      if (!adminEmail || !adminPassword || String(adminPassword).length < 6) {
-        throw new ApiError(400, 'Informe um e-mail e uma senha (mínimo 6 caracteres) para o login da nova empresa.')
+      if (!adminEmail || !isAcceptableNewPassword(adminPassword)) {
+        throw new ApiError(400, 'Informe um e-mail e uma senha de 10 a 72 bytes para o login da nova empresa.')
       }
       const newId = makeId('biz')
       const row = businessToRow(body.business ?? body)
+      const trialSetting = await sql`
+        SELECT COALESCE((to_jsonb(ps)->>'trial_days')::int, 7) AS trial_days
+        FROM platform_settings ps WHERE id = 'default' LIMIT 1
+      `
+      const trialDays = Math.min(90, Math.max(1, Number(trialSetting.rows[0]?.trial_days ?? 7)))
       // O slug vira o subdomínio da empresa (ex: beauty-demo.organyze.com.br)
       // — esta é a barreira que realmente importa contra uma empresa
       // colidir com um subdomínio reservado pela própria plataforma (o
@@ -221,14 +234,14 @@ async function businesses(req: VercelRequest, res: VercelResponse) {
           phone, whatsapp, email, instagram, facebook, tiktok, youtube, website,
           address, city, state, country, zip_code, currency, timezone,
           primary_color, secondary_color, accent_color, background_color, foreground_color, theme,
-          active, demo, plan, working_hours, booking_policies
+          active, demo, plan, working_hours, booking_policies, trial_ends_at
         ) VALUES (
           ${newId}, ${row.slug}, ${row.name}, ${row.display_name}, ${row.description}, ${row.segment},
           ${JSON.stringify(row.logo)}, ${JSON.stringify(row.favicon)}, ${JSON.stringify(row.cover_image)}, ${JSON.stringify(row.hero_image)},
           ${row.phone}, ${row.whatsapp}, ${row.email}, ${row.instagram}, ${row.facebook}, ${row.tiktok}, ${row.youtube}, ${row.website},
           ${row.address}, ${row.city}, ${row.state}, ${row.country}, ${row.zip_code}, ${row.currency}, ${row.timezone},
           ${row.primary_color}, ${row.secondary_color}, ${row.accent_color}, ${row.background_color}, ${row.foreground_color}, ${row.theme},
-          ${row.active}, ${row.demo}, ${row.plan}, ${row.working_hours}, ${row.booking_policies}
+          ${row.active}, ${row.demo}, ${row.plan}, ${row.working_hours}, ${row.booking_policies}, now() + (${trialDays} * interval '1 day')
         )
       `
       const passwordHash = await hashPassword(adminPassword)
@@ -491,21 +504,38 @@ async function customers(req: VercelRequest, res: VercelResponse) {
   if (action === 'find-or-create' && method === 'POST') {
     const body = readBody(req)
     if (!body.businessId || !body.name || !body.whatsapp) throw new ApiError(400, 'Dados de cliente incompletos.')
+    await enforceDailyRateLimit(`booking-customer:${clientIpFingerprint(req)}:${String(body.businessId)}`, 100)
+    const name = String(body.name).trim()
     const normalized = String(body.whatsapp).replace(/\D/g, '')
-    const { rows } = await sql`SELECT * FROM customers WHERE business_id = ${body.businessId}`
-    const existing = rows.find((r) => String(r.whatsapp).replace(/\D/g, '') === normalized)
+    const email = body.email ? String(body.email).trim().toLowerCase() : null
+    if (name.length < 2 || name.length > 100) throw new ApiError(400, 'Nome do cliente inválido.')
+    if (normalized.length < 8 || normalized.length > 15) throw new ApiError(400, 'WhatsApp inválido.')
+    if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new ApiError(400, 'E-mail inválido.')
+
+    const business = await sql`SELECT id FROM businesses WHERE id = ${body.businessId} AND active = true LIMIT 1`
+    if (business.rows.length === 0) throw new ApiError(404, 'Empresa não encontrada ou indisponível.')
+
+    // Query only the matching row: loading every customer into memory exposed
+    // unnecessary PII to the request path and became slower as a tenant grew.
+    const { rows } = await sql`
+      SELECT id FROM customers
+      WHERE business_id = ${body.businessId}
+        AND regexp_replace(whatsapp, '[^0-9]', '', 'g') = ${normalized}
+      LIMIT 1
+    `
+    const existing = rows[0]
     if (existing) {
-      await sql`UPDATE customers SET name = ${body.name}, email = ${body.email ?? existing.email ?? null} WHERE id = ${existing.id}`
-      const updated = await sql`SELECT * FROM customers WHERE id = ${existing.id}`
-      return res.status(200).json(rowToCustomer(updated.rows[0]))
+      await sql`UPDATE customers SET name = ${name}, email = COALESCE(${email}, email) WHERE id = ${existing.id}`
+      // The public booking flow only needs the opaque id. Never return an
+      // existing customer's notes or other stored PII to an anonymous caller.
+      return res.status(200).json({ id: existing.id })
     }
     const newId = makeId('cus')
     await sql`
       INSERT INTO customers (id, business_id, name, phone, whatsapp, email)
-      VALUES (${newId}, ${body.businessId}, ${body.name}, ${body.phone || body.whatsapp}, ${body.whatsapp}, ${body.email ?? null})
+      VALUES (${newId}, ${body.businessId}, ${name}, ${normalized}, ${normalized}, ${email})
     `
-    const created = await sql`SELECT * FROM customers WHERE id = ${newId}`
-    return res.status(201).json(rowToCustomer(created.rows[0]))
+    return res.status(201).json({ id: newId })
   }
 
   if (id === undefined) {
@@ -572,12 +602,62 @@ async function appointments(req: VercelRequest, res: VercelResponse) {
       if (!body.businessId || !body.serviceId || !body.customerId || !body.date || !body.startTime) {
         throw new ApiError(400, 'Dados de agendamento incompletos.')
       }
+      const businessId = String(body.businessId)
+      await enforceDailyRateLimit(`booking-appointment:${clientIpFingerprint(req)}:${businessId}`, 50)
+      const serviceId = String(body.serviceId)
+      const customerId = String(body.customerId)
+      const professionalId = body.professionalId ? String(body.professionalId) : null
+      const date = String(body.date)
+      const startTime = String(body.startTime)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) {
+        throw new ApiError(400, 'Data ou horário inválido.')
+      }
+
+      const [businessRows, serviceRows, customerRows] = await Promise.all([
+        sql`SELECT id FROM businesses WHERE id = ${businessId} AND active = true LIMIT 1`,
+        sql`SELECT id, duration, price, promotional_price FROM services WHERE id = ${serviceId} AND business_id = ${businessId} AND active = true LIMIT 1`,
+        sql`SELECT id FROM customers WHERE id = ${customerId} AND business_id = ${businessId} LIMIT 1`,
+      ])
+      if (businessRows.rows.length === 0) throw new ApiError(404, 'Empresa não encontrada ou indisponível.')
+      if (serviceRows.rows.length === 0) throw new ApiError(400, 'Serviço inválido para esta empresa.')
+      if (customerRows.rows.length === 0) throw new ApiError(400, 'Cliente inválido para esta empresa.')
+      if (professionalId) {
+        const professional = await sql`
+          SELECT id FROM professionals
+          WHERE id = ${professionalId} AND business_id = ${businessId} AND active = true
+          LIMIT 1
+        `
+        if (professional.rows.length === 0) throw new ApiError(400, 'Profissional inválido para esta empresa.')
+      }
+
+      // Price, duration and status are security-sensitive business data: the
+      // browser may display them, but it must never be authoritative.
+      const service = serviceRows.rows[0]
+      const duration = Number(service.duration)
+      if (!Number.isInteger(duration) || duration <= 0 || duration > 24 * 60) throw new ApiError(400, 'Duração do serviço inválida.')
+      const [hour, minute] = startTime.split(':').map(Number)
+      const endMinutes = hour * 60 + minute + duration
+      if (endMinutes > 24 * 60) throw new ApiError(400, 'O serviço ultrapassa o fim do dia.')
+      const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+      const price = Number(service.promotional_price ?? service.price)
+      const notes = body.notes ? String(body.notes).trim().slice(0, 1000) : null
+
+      if (professionalId) {
+        const conflict = await sql`
+          SELECT id FROM appointments
+          WHERE business_id = ${businessId} AND professional_id = ${professionalId} AND date = ${date}
+            AND status <> 'cancelled' AND start_time < ${endTime} AND end_time > ${startTime}
+          LIMIT 1
+        `
+        if (conflict.rows.length > 0) throw new ApiError(409, 'Este horário acabou de ser ocupado. Escolha outro.')
+      }
+
       const newId = makeId('apt')
       const seq = await sql`SELECT nextval('appointment_seq') AS n`
       const code = makeAppointmentCode(Number(seq.rows[0].n))
       await sql`
         INSERT INTO appointments (id, business_id, code, service_id, professional_id, customer_id, date, start_time, end_time, duration, price, status, notes)
-        VALUES (${newId}, ${body.businessId}, ${code}, ${body.serviceId}, ${body.professionalId ?? null}, ${body.customerId}, ${body.date}, ${body.startTime}, ${body.endTime ?? ''}, ${body.duration ?? 0}, ${body.price ?? 0}, ${body.status ?? 'pending'}, ${body.notes ?? null})
+        VALUES (${newId}, ${businessId}, ${code}, ${serviceId}, ${professionalId}, ${customerId}, ${date}, ${startTime}, ${endTime}, ${duration}, ${price}, 'pending', ${notes})
       `
       const created = await sql`SELECT * FROM appointments WHERE id = ${newId}`
       return res.status(201).json(rowToAppointment(created.rows[0]))
@@ -886,6 +966,13 @@ async function plans(req: VercelRequest, res: VercelResponse) {
 // via WhatsApp no grid de empresas (chave Pix de pagamento alternativo).
 async function platformSettings(req: VercelRequest, res: VercelResponse) {
   const method = req.method
+  const action = strParam(req, 'action')
+
+  if (method === 'GET' && action === 'public') {
+    const { rows } = await sql`SELECT * FROM platform_settings WHERE id = 'default' LIMIT 1`
+    return res.status(200).json({ trialDays: rowToPlatformSettings(rows[0] ?? {}).trialDays })
+  }
+
   const session = await requireSession(req)
   requireSuperAdmin(session)
 
@@ -895,9 +982,18 @@ async function platformSettings(req: VercelRequest, res: VercelResponse) {
   }
   if (method === 'PATCH') {
     const body = readBody(req)
+    const currentRows = await sql`SELECT * FROM platform_settings WHERE id = 'default' LIMIT 1`
+    const current = rowToPlatformSettings(currentRows.rows[0] ?? {})
+    const trialDays = body.trialDays === undefined ? current.trialDays : Number(body.trialDays)
+    if (!Number.isInteger(trialDays) || trialDays < 1 || trialDays > 90) {
+      throw new ApiError(400, 'O teste grátis deve ter entre 1 e 90 dias.')
+    }
     await sql`
       UPDATE platform_settings SET
-        pix_key = ${body.pixKey ?? ''}, pix_key_owner_name = ${body.pixKeyOwnerName ?? ''}, updated_at = now()
+        pix_key = ${body.pixKey ?? current.pixKey},
+        pix_key_owner_name = ${body.pixKeyOwnerName ?? current.pixKeyOwnerName},
+        trial_days = ${trialDays},
+        updated_at = now()
       WHERE id = 'default'
     `
     const { rows } = await sql`SELECT * FROM platform_settings WHERE id = 'default' LIMIT 1`

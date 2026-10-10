@@ -1,0 +1,22 @@
+-- ---------------------------------------------------------------------------
+-- Migração: data de término do teste grátis
+--
+-- Para quem JÁ TEM o banco em produção (schema.sql já foi rodado antes):
+-- cole este arquivo inteiro no SQL Editor da Vercel/Neon e execute uma vez.
+-- É seguro rodar mais de uma vez (usa IF NOT EXISTS).
+--
+-- Para um banco NOVO: não precisa rodar este arquivo — db/schema.sql já
+-- inclui essa coluna.
+--
+-- Importante: este comando NÃO preenche trial_ends_at para empresas que já
+-- existem — elas ficam com a coluna NULL, e uma empresa com trial_ends_at
+-- NULL nunca é bloqueada automaticamente por teste grátis vencido (ver
+-- hasBillingAccess() em src/utils/billing.ts). Isso evita desativar de
+-- surpresa negócios que já estavam rodando sem pagamento antes desse
+-- recurso existir — o controle deles continua sendo só o botão manual
+-- "ativo/inativo" do superadmin, como já era. O trial configurado só passa a
+-- valer para empresas cadastradas A PARTIR de agora (register() em
+-- api/auth/[...action].ts e o POST de empresas em api/data/[...path].ts).
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS trial_ends_at timestamptz;

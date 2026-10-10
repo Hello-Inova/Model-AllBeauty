@@ -3,6 +3,7 @@ import { sql, ApiError } from '../_lib/db.js'
 import {
   getSession,
   hashPassword,
+  isAcceptableNewPassword,
   verifyPassword,
   signSession,
   sessionCookieHeader,
@@ -20,6 +21,7 @@ import {
 import { sendEmail } from '../_lib/resend.js'
 import { makeId } from '../../src/utils/id.js'
 import { slugify } from '../../src/utils/slug.js'
+import { clientIpFingerprint, publicAppOrigin, requireSameOrigin } from '../_lib/http.js'
 
 // Consolidated auth endpoint — every action Vercel would otherwise need a
 // separate function file for lives here, keeping the deployment's function
@@ -51,25 +53,10 @@ function getAction(req: VercelRequest): string | undefined {
   return decodeURIComponent(parts[idx + 1] ?? '')
 }
 
-function remoteIpOf(req: VercelRequest): string {
-  const fwd = req.headers['x-forwarded-for']
-  const first = Array.isArray(fwd) ? fwd[0] : fwd
-  if (first) return first.split(',')[0].trim()
-  return req.socket?.remoteAddress ?? '127.0.0.1'
-}
-
-/** `https://seu-dominio.com` (ou http/localhost em dev) a partir dos headers da própria requisição — usado para montar o link absoluto do e-mail de redefinição de senha sem precisar de mais uma variável de ambiente com a URL do site. */
-function requestOrigin(req: VercelRequest): string {
-  const fwdHost = req.headers['x-forwarded-host']
-  const host = (Array.isArray(fwdHost) ? fwdHost[0] : fwdHost) ?? req.headers.host ?? 'localhost:5173'
-  const fwdProto = req.headers['x-forwarded-proto']
-  const proto = (Array.isArray(fwdProto) ? fwdProto[0] : fwdProto) ?? (host.startsWith('localhost') ? 'http' : 'https')
-  return `${proto}://${host}`
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const action = getAction(req)
   try {
+    requireSameOrigin(req)
     if (action === 'register' && req.method === 'POST') return await register(req, res)
     if (action === 'login-admin' && req.method === 'POST') return await loginAdmin(req, res)
     if (action === 'login-super' && req.method === 'POST') return await loginSuper(req, res)
@@ -114,17 +101,22 @@ const DEFAULT_BOOKING_POLICIES = {
  * owner account, auto-logged-in — no Hello Inova/superadmin step in between.
  * The business starts with `subscription_status: sem_assinatura` (DB
  * default, deliberately not set here — see the comment on businessToRow in
- * api/_lib/mappers.ts); the owner pays their chosen plan afterwards from
- * the Assinatura screen, same flow as a superadmin-created business. All
- * cosmetic/content fields (logo, colors, services…) start empty/default and
- * are filled in later via the admin panel — the onboarding checklist on the
+ * api/_lib/mappers.ts) and `trial_ends_at` set from the period configured by
+ * the Super Admin: the site
+ * and admin panel work fully free during that window (see
+ * hasBillingAccess() in src/utils/billing.ts, used by PublicBusinessGate and
+ * the admin SubscribeGate), and once it expires without an active paid
+ * subscription the public site shows a "site desativado" screen and the
+ * owner is redirected to the Assinatura screen on login. All cosmetic/
+ * content fields (logo, colors, services…) start empty/default and are
+ * filled in later via the admin panel — the onboarding checklist on the
  * dashboard walks the new owner through exactly that.
  */
 async function register(req: VercelRequest, res: VercelResponse) {
   // Anti-abuse: reuses the same daily attempt counter as login lockout,
   // scoped by IP instead of by credential — caps how many businesses a
   // single visitor can spin up per day without needing a new DB table.
-  const scope = `register:${remoteIpOf(req)}`
+  const scope = `register:${clientIpFingerprint(req)}`
   if (await isLoginLocked(scope)) {
     return res.status(429).json({ error: 'Limite de cadastros atingido por hoje a partir desta conexão. Tente novamente amanhã.' })
   }
@@ -145,9 +137,17 @@ async function register(req: VercelRequest, res: VercelResponse) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
     return res.status(400).json({ error: 'Informe um e-mail válido.' })
   }
-  if (adminPassword.length < 6) {
-    return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' })
+  if (!isAcceptableNewPassword(adminPassword)) {
+    return res.status(400).json({ error: 'A senha deve ter entre 10 e 72 bytes.' })
   }
+
+  // Read through to_jsonb so deployments still default safely to 7 while the
+  // new platform_settings column is being migrated.
+  const trialSetting = await sql`
+    SELECT COALESCE((to_jsonb(ps)->>'trial_days')::int, 7) AS trial_days
+    FROM platform_settings ps WHERE id = 'default' LIMIT 1
+  `
+  const trialDays = Math.min(90, Math.max(1, Number(trialSetting.rows[0]?.trial_days ?? 7)))
 
   // Slug deduplication: two businesses can easily share a name (two
   // "Espaço Bella" in different cities), and unlike the superadmin wizard —
@@ -168,7 +168,7 @@ async function register(req: VercelRequest, res: VercelResponse) {
       phone, whatsapp, email, instagram, facebook, tiktok, youtube, website,
       address, city, state, country, zip_code, currency, timezone,
       primary_color, secondary_color, accent_color, background_color, foreground_color, theme,
-      active, demo, plan, working_hours, booking_policies, billing_type, billing_plan
+      active, demo, plan, working_hours, booking_policies, billing_type, billing_plan, trial_ends_at
     ) VALUES (
       ${newId}, ${slug}, ${businessName}, ${businessName}, ${''}, ${segment},
       ${null}, ${null}, ${null}, ${null},
@@ -176,7 +176,7 @@ async function register(req: VercelRequest, res: VercelResponse) {
       ${''}, ${''}, ${''}, ${'Brasil'}, ${''}, ${'BRL'}, ${'America/Sao_Paulo'},
       ${'#b3873e'}, ${'#2b2320'}, ${'#b3873e'}, ${'#ffffff'}, ${'#1c1917'}, ${'light'},
       ${true}, ${false}, ${'basico'}, ${JSON.stringify(DEFAULT_WORKING_HOURS)}, ${JSON.stringify(DEFAULT_BOOKING_POLICIES)},
-      ${'padrao'}, ${billingPlan}
+      ${'padrao'}, ${billingPlan}, now() + (${trialDays} * interval '1 day')
     )
   `
   const passwordHash = await hashPassword(adminPassword)
@@ -225,7 +225,7 @@ async function loginAdmin(req: VercelRequest, res: VercelResponse) {
   // Escopo construído a partir do que foi digitado, ANTES de qualquer
   // consulta — assim uma empresa/e-mail inexistente também é limitada,
   // em vez de dar tentativas ilimitadas para "descobrir" contas válidas.
-  const scope = `admin:${String(businessSlug).toLowerCase()}:${String(email).toLowerCase()}`
+  const scope = `admin:${clientIpFingerprint(req)}:${String(businessSlug).toLowerCase()}:${String(email).toLowerCase()}`
   if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_RECOVERY_MESSAGE, recoveryTriggered: true })
 
   const biz = await sql`SELECT id, slug FROM businesses WHERE lower(slug) = lower(${businessSlug}) LIMIT 1`
@@ -259,7 +259,7 @@ async function loginSuper(req: VercelRequest, res: VercelResponse) {
   const { email, password } = readBody(req)
   if (!email || !password) return res.status(400).json({ error: 'Informe e-mail e senha.' })
 
-  const scope = `super:${String(email).toLowerCase()}`
+  const scope = `super:${clientIpFingerprint(req)}:${String(email).toLowerCase()}`
   if (await isLoginLocked(scope)) return res.status(429).json({ error: LOGIN_RECOVERY_MESSAGE, recoveryTriggered: true })
 
   const admins = await sql`
@@ -359,8 +359,8 @@ async function changePassword(req: VercelRequest, res: VercelResponse) {
   const session = await getSession(req)
   if (!session) throw new ApiError(401, 'Sessão inválida ou expirada.')
   const { currentPassword, newPassword } = readBody(req)
-  if (!currentPassword || !newPassword || String(newPassword).length < 6) {
-    return res.status(400).json({ error: 'Informe a senha atual e uma nova senha com pelo menos 6 caracteres.' })
+  if (!currentPassword || !isAcceptableNewPassword(newPassword)) {
+    return res.status(400).json({ error: 'Informe a senha atual e uma nova senha com pelo menos 10 caracteres.' })
   }
   const rows = await sql`SELECT id, password_hash FROM admin_users WHERE id = ${session.sub} LIMIT 1`
   const admin = rows.rows[0]
@@ -467,7 +467,7 @@ async function sendPasswordResetEmail(
     VALUES (${tokenId}, ${admin.id}, ${hashPasswordResetToken(rawToken)}, ${expiresAt.toISOString()})
   `
 
-  const resetUrl = `${requestOrigin(req)}/redefinir-senha?token=${rawToken}`
+  const resetUrl = `${publicAppOrigin(req)}/redefinir-senha?token=${rawToken}`
   try {
     await sendEmail({
       to: admin.email,
@@ -520,8 +520,8 @@ async function resetPassword(req: VercelRequest, res: VercelResponse) {
   const { token, newPassword } = readBody(req)
   const rawToken = String(token ?? '')
   if (!rawToken) return res.status(400).json({ error: 'Link inválido.' })
-  if (!newPassword || String(newPassword).length < 6) {
-    return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' })
+  if (!isAcceptableNewPassword(newPassword)) {
+    return res.status(400).json({ error: 'A nova senha deve ter entre 10 caracteres e 72 bytes.' })
   }
 
   const invalidMessage = 'Link inválido ou expirado. Solicite um novo link de redefinição de senha.'
@@ -553,7 +553,9 @@ async function resetPassword(req: VercelRequest, res: VercelResponse) {
   // senha erradas que levaram a esse link — libera o login imediatamente
   // com a senha nova, em vez de esperar a virada do dia.
   const normalizedAdminEmail = String(admin.email ?? '').toLowerCase()
-  const loginScope = businessSlug ? `admin:${businessSlug.toLowerCase()}:${normalizedAdminEmail}` : `super:${normalizedAdminEmail}`
+  const loginScope = businessSlug
+    ? `admin:${clientIpFingerprint(req)}:${businessSlug.toLowerCase()}:${normalizedAdminEmail}`
+    : `super:${clientIpFingerprint(req)}:${normalizedAdminEmail}`
   await clearLoginAttempts(loginScope)
 
   res.status(200).json({ ok: true, role: admin.role, businessSlug })

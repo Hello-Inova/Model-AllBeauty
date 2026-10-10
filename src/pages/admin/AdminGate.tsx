@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { FullPageLoader, BusinessNotFound } from '../../components/StateScreens'
 import { AdminLayout } from '../../layouts/AdminLayout'
 import { TermsGate } from '../../components/admin/TermsGate'
+import { SubscribeGate } from '../../components/admin/SubscribeGate'
 import { adminRoutes } from '../../utils/routes'
 import { resolveBusinessSlug } from '../../utils/hostContext'
 
@@ -32,9 +33,11 @@ function AdminGateInner({ slug }: { slug: string }) {
 
   return (
     <TermsGate>
-      <AdminLayout business={business}>
-        <Outlet />
-      </AdminLayout>
+      <SubscribeGate business={business}>
+        <AdminLayout business={business}>
+          <Outlet />
+        </AdminLayout>
+      </SubscribeGate>
     </TermsGate>
   )
 }
